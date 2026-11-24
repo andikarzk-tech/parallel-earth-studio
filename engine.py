@@ -763,15 +763,55 @@ def sfx_track(n, starts, kinds):
     return out
 
 
+def pixabay_pick(key, q, used):
+    import requests
+    r = requests.get('https://pixabay.com/api/videos/', timeout=30,
+                     params={'key': key, 'q': q[:100], 'per_page': 20, 'safesearch': 'true', 'video_type': 'film'})
+    hits = [h for h in r.json().get('hits', []) if h['id'] not in used and h.get('duration', 0) >= 4]
+    if not hits:
+        r = requests.get('https://pixabay.com/api/videos/', timeout=30, params={'key': key, 'q': ' '.join(q.split()[:2]), 'per_page': 20, 'safesearch': 'true'})
+        hits = [h for h in r.json().get('hits', []) if h['id'] not in used and h.get('duration', 0) >= 4]
+    if not hits:
+        return None, None
+    h = random.Random(q).choice(hits[:6])
+    vids = h.get('videos', {})
+    for size in ('medium', 'large', 'small', 'tiny'):
+        v = vids.get(size) or {}
+        if v.get('url') and v.get('height', 0) >= 540:
+            return h['id'], v['url']
+    for size in ('medium', 'large', 'small', 'tiny'):
+        if (vids.get(size) or {}).get('url'):
+            return h['id'], vids[size]['url']
+    return None, None
+
+
 def fetch_backgrounds(scenes, work, log=print):
     key = os.environ.get('PEXELS_API_KEY', '').strip()
-    if not key:
+    pkey = os.environ.get('PIXABAY_API_KEY', '').strip()
+    if not key and not pkey:
         return
     import requests
     used = set()
     for i, sc in enumerate(scenes):
         q = str(sc.get('bg', '') or '').strip()
         if not q or str(sc.get('type', '')).lower() in ('brand', 'cta'):
+            continue
+        if not key:
+            try:
+                vid, url = pixabay_pick(pkey, q, used)
+                if not url:
+                    log(f'  bg "{q}": nothing found'); continue
+                path = os.path.join(work, f'bg_{i+1:02d}.mp4')
+                with requests.get(url, stream=True, timeout=120) as dl:
+                    dl.raise_for_status()
+                    with open(path, 'wb') as fh:
+                        for chunk in dl.iter_content(1 << 20):
+                            fh.write(chunk)
+                used.add(vid)
+                sc['_bg'] = path
+                log(f'  bg "{q}": pixabay video {vid}')
+            except Exception as e:
+                log(f'  bg "{q}" failed: {str(e)[:120]}')
             continue
         try:
             r = requests.get('https://api.pexels.com/videos/search', headers={'Authorization': key}, timeout=30,

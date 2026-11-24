@@ -119,7 +119,7 @@ def chat_id():
 
 def tg_send(cid, path, cfg, idx):
     cap = (f"🎬 Video {idx}/{N}\n\n<b>{cfg.get('yt_title') or cfg.get('title')}</b>\n\n{cfg.get('description', '')}\n\n{cfg.get('hashtags', '')}\n\n"
-           "Stock footage: Pexels\n\n✅ Cek fakta dulu sebelum upload. Centang label konten AI.")
+           "Stock footage: Pixabay\n\n✅ Cek fakta dulu sebelum upload. Centang label konten AI.")
     with open(path, 'rb') as f:
         r = requests.post(f'https://api.telegram.org/bot{TG}/sendVideo', timeout=300,
                           data={'chat_id': cid, 'caption': cap[:1024], 'parse_mode': 'HTML', 'supports_streaming': 'true', 'width': 1080, 'height': 1920},
