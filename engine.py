@@ -618,14 +618,26 @@ def build(cfg, out_dir=None, workers=2, log=print):
     voice = str(cfg.get('voice', 'am_michael'))
     lang = 'en-gb' if voice.startswith('b') else 'en-us'
     speed = float(cfg.get('speed', 1.0) or 1.0)
-    segs, durs = [], []
-    for sc in scenes:
-        say = str(sc.get('say', '') or '').strip()
-        a = np.zeros(int(SR * 1.2), dtype=np.float32)
-        if say:
-            a, _ = k.create(say, voice=voice, speed=speed, lang=lang)
-        a = np.concatenate([np.zeros(int(SR * 0.15)), a, np.zeros(int(SR * 0.4))]).astype(np.float32)
-        segs.append(a); durs.append(len(a) / SR)
+    min_s = float(cfg.get('min_seconds', 0) or 0)
+
+    def voice_pass(spd):
+        sg, du = [], []
+        for sc in scenes:
+            say = str(sc.get('say', '') or '').strip()
+            a = np.zeros(int(SR * 1.2), dtype=np.float32)
+            if say:
+                a, _ = k.create(say, voice=voice, speed=spd, lang=lang)
+            a = np.concatenate([np.zeros(int(SR * 0.15)), a, np.zeros(int(SR * 0.4))]).astype(np.float32)
+            sg.append(a); du.append(len(a) / SR)
+        return sg, du
+    segs, durs = voice_pass(speed)
+    if min_s and sum(durs) < min_s - 2:
+        log(f'Narration {sum(durs):.1f} s is short, slowing voice slightly')
+        segs, durs = voice_pass(max(0.85, speed * 0.92))
+    if min_s and sum(durs) < min_s:
+        extra = min_s - sum(durs) + 0.3  # hold the last scene a little longer
+        segs[-1] = np.concatenate([segs[-1], np.zeros(int(SR * extra), dtype=np.float32)])
+        durs[-1] += extra
     frames, cum = [], 0.0
     for d in durs:
         s0 = round(cum * FPS); cum += d; frames.append((round(cum * FPS) - s0) / FPS)
@@ -653,6 +665,7 @@ def build(cfg, out_dir=None, workers=2, log=print):
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-i', os.path.join(work, 'audio.wav'),
                     '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11', '-ar', '48000',
                     '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out], check=True)
+    json.dump({'frames': frames, 'titles': [str(sc.get('chapter', '')) for sc in scenes]}, open(os.path.join(work, 'timing.json'), 'w'))
     log(f'Done: {out}')
     return out
 
