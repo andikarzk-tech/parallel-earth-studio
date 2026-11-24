@@ -14,7 +14,7 @@ COMPILED_FILE = os.path.join(ROOT, 'compiled.txt')
 MODE = (os.environ.get('MODE', 'auto') or 'auto').lower()   # auto | daily | compile | both
 COMPILE_MIN = int(os.environ.get('COMPILE_MIN', '5') or 5)
 MIN_SECONDS = 66
-WIB = datetime.datetime.utcnow() + datetime.timedelta(hours=7)
+WIB = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(hours=7)
 CHAT_FILE = os.path.join(ROOT, 'telegram_chat_id.txt')
 N = int(os.environ.get('VIDEOS', '3') or 3)
 KEY = os.environ.get('GEMINI_API_KEY', '').strip()
@@ -51,7 +51,7 @@ def pick_model():
     good.sort(key=score, reverse=True)
     cands = good + [n for n in names if n not in good and not any(b in n for b in bad)]
     log('Gemini models to try:', cands[:4])
-    return cands[:4]
+    return cands[:6]
 
 
 def ask_gemini(models, avoid, used_styles):
@@ -64,7 +64,7 @@ def ask_gemini(models, avoid, used_styles):
     for model in models:
         for attempt in range(2):
             try:
-                r = requests.post(f'https://generativelanguage.googleapis.com/v1beta/{model}:generateContent', params={'key': KEY}, timeout=120,
+                r = requests.post(f'https://generativelanguage.googleapis.com/v1beta/{model}:generateContent', params={'key': KEY}, timeout=150,
                                   json={'contents': [{'role': 'user', 'parts': [{'text': user}]}],
                                         'generationConfig': {'temperature': 1.0, 'responseMimeType': 'application/json'}})
                 if r.status_code == 429:
@@ -74,10 +74,14 @@ def ask_gemini(models, avoid, used_styles):
                 cfg = json.loads(txt[txt.find('{'):txt.rfind('}') + 1])
                 validate(cfg)
                 return cfg
+            except requests.exceptions.Timeout as e:
+                last = e
+                log(f'{model} timed out, trying next model')
+                break
             except Exception as e:
                 last = e
                 log(f'{model} attempt {attempt+1} failed: {str(e)[:200]}')
-                time.sleep(5)
+                time.sleep(10)
     raise RuntimeError(f'Gemini failed: {last}')
 
 
