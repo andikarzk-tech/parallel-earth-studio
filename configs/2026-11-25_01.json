@@ -1,141 +1,162 @@
 {
- "title": "What If Lightning Vanished?",
- "voice": "am_michael",
- "speed": 1.0,
- "accent": "green",
- "style": "dust",
- "yt_title": "What If Lightning Vanished From Earth? #shorts",
- "description": "Every second, dozens of lightning bolts reshape our atmosphere and fertilize the ground. Here is what would happen if the sky went permanently silent.",
- "hashtags": "#whatif #science #earth #space #lightning #parallelearth #education",
+ "title": "What If Oxygen Levels Doubled?",
+ "voice": "bm_george",
+ "speed": 1.05,
+ "accent": "purple",
+ "style": "space",
+ "yt_title": "What If Earth Doubled Its Oxygen? #shorts",
+ "description": "What would happen if Earth's atmosphere suddenly had twice as much oxygen? Explore the shocking consequences on human bodies, insects, and global fires.",
+ "hashtags": "#whatif #science #nature #earth #parallelearth",
  "scenes": [
   {
    "type": "title",
-   "say": "What if lightning completely vanished from planet Earth, and every violent thunderstorm went dead silent forever?",
+   "say": "What if the oxygen levels on Earth suddenly doubled? You might think breathing would become a super power.",
    "head": [
-    "WHAT IF",
-    "LIGHTNING",
-    "*VANISHED?*"
+    "WHAT IF OXYGEN",
+    "*DOUBLED?*"
    ],
    "visual": "earth",
-   "effect": "pulse"
-  },
-  {
-   "type": "counter",
-   "say": "Right now, over forty lightning bolts strike the ground every second. In a flash, that number plunges to zero.",
-   "head": [
-    "GLOBAL STRIKES",
-    "*PLUNGE TO*",
-    "ZERO"
-   ],
-   "from": 44,
-   "to": 0,
-   "decimals": 0,
-   "prefix": "",
-   "suffix": " / sec",
-   "label": "lightning strikes globally"
-  },
-  {
-   "type": "words",
-   "say": "Most people do not know that lightning rips apart atmospheric nitrogen molecules, raining down natural fertilizer for plant life.",
-   "words": [
-    "NITROGEN COLLAPSE",
-    "SOIL DEPLETION",
-    "PLANT CRISIS"
-   ]
-  },
-  {
-   "type": "bars",
-   "say": "Without these chemical strikes, wild soil would gradually starve, causing forests to wither and wild crop yields to plummet.",
-   "head": [
-    "WILD SOILS",
-    "*BEGIN TO*",
-    "STARVE"
-   ],
-   "trend": "down",
-   "label": "natural soil nitrates"
-  },
-  {
-   "type": "compare",
-   "say": "Lightning also generates reactive molecules that clean our skies, breaking down potent greenhouse gases like dangerous methane.",
-   "head": [
-    "ATMOSPHERIC",
-    "*CLEANSING*",
-    "STOPS"
-   ],
-   "left": {
-    "name": "Our Earth",
-    "value": "CLEAN SKIES"
-   },
-   "right": {
-    "name": "Parallel Earth",
-    "value": "TOXIC METHANE"
-   },
-   "label": "air filtration",
-   "sublabel": "chemical breakdown"
-  },
-  {
-   "type": "wave",
-   "say": "Without this atmospheric detergent, greenhouse pollutants would linger indefinitely, creating dense, toxic smog across the globe.",
-   "head": [
-    "TOXIC GASES",
-    "*BUILD UP*",
-    "RAPIDLY"
-   ],
-   "trend": "up",
-   "label": "+35%",
-   "sublabel": "methane accumulation"
+   "effect": "pulse",
+   "bg": "earth atmosphere clouds"
   },
   {
    "type": "globe",
-   "say": "Massive rainstorms would still flood our cities, but thunder would soon become nothing more than an ancient forgotten myth.",
+   "say": "Right now, oxygen makes up twenty-one percent of our atmosphere. Doubling it to forty-two percent would reshape life forever.",
    "head": [
-    "A WORLD OF",
-    "*SILENT*",
-    "STORMS"
+    "ATMOSPHERE IN",
+    "*CHAOS*"
    ],
    "body": "earth",
-   "effect": "freeze",
-   "label": "SILENT SKIES",
-   "sublabel": "thunderstorms without thunder"
+   "effect": "heat",
+   "label": "42% OXYGEN",
+   "sublabel": "double current levels",
+   "bg": ""
+  },
+  {
+   "type": "words",
+   "say": "At first, human performance would skyrocket. Fatigue would vanish, while stamina and mental clarity reach extreme peak levels.",
+   "head": [
+    "SUPERHUMAN",
+    "*STRENGTH*"
+   ],
+   "words": [
+    "UNLIMITED ENERGY",
+    "ZERO FATIGUE",
+    "PEAK STAMINA"
+   ],
+   "bg": "runner sprinting track"
+  },
+  {
+   "type": "compare",
+   "say": "But human cells would quickly deteriorate. Oxygen toxicity would damage your lungs and trigger rapid cellular aging.",
+   "head": [
+    "CELLULAR",
+    "*TOXICITY*"
+   ],
+   "left": {
+    "name": "Normal Earth",
+    "value": "21% O2"
+   },
+   "right": {
+    "name": "Parallel Earth",
+    "value": "42% O2"
+   },
+   "label": "TISSUE DAMAGE",
+   "sublabel": "accelerated aging",
+   "bg": ""
+  },
+  {
+   "type": "counter",
+   "say": "Insects would grow to monster proportions. Cockroaches could reach the size of basketballs within a few generations.",
+   "head": [
+    "MONSTER",
+    "*BUGS*"
+   ],
+   "from": 1,
+   "to": 10,
+   "decimals": 0,
+   "prefix": "",
+   "suffix": "x LARGER",
+   "label": "insect size growth",
+   "bg": ""
+  },
+  {
+   "type": "distance",
+   "say": "Insects grow massive because oxygen penetrates deeper into their bodies, allowing them to expand without suffocating.",
+   "head": [
+    "EXPANDING",
+    "*BODIES*"
+   ],
+   "a": "earth",
+   "b": "mars",
+   "motion": "apart",
+   "label": "+1000%",
+   "sublabel": "bug oxygen absorption",
+   "bg": "giant beetle crawling"
+  },
+  {
+   "type": "bars",
+   "say": "Wildfires would become unstoppable catastrophes. A single spark could instantly set entire wet rainforests ablaze.",
+   "head": [
+    "UNSTOPPABLE",
+    "*FIRES*"
+   ],
+   "trend": "up",
+   "label": "FLAMMABILITY RISK",
+   "bg": "forest fire raging"
+  },
+  {
+   "type": "wave",
+   "say": "Oceans would suffer as hyper-oxygenated water damages marine gills, creating massive dead zones across all coastlines.",
+   "head": [
+    "OCEANS",
+    "*SUFFOCATE*"
+   ],
+   "trend": "down",
+   "label": "-80%",
+   "sublabel": "marine survival rate",
+   "bg": "storm ocean waves"
   },
   {
    "type": "timeline",
-   "say": "Over decades, agricultural systems would need artificial nitrogen supplements on a planetary scale just to prevent global starvation.",
+   "say": "Within weeks, endless mega-fires and toxic air would destroy ecosystems, bringing human civilization to its knees.",
    "head": [
-    "GLOBAL CROP",
-    "*COLLAPSE*",
-    "TIMELINE"
+    "THE GLOBAL",
+    "*COLLAPSE*"
    ],
    "points": [
     {
-     "year": "Month 1",
-     "text": "Thunder ceases"
+     "year": "Day 1",
+     "text": "Peak stamina"
     },
     {
-     "year": "Year 5",
-     "text": "Wild soil starves"
+     "year": "Day 5",
+     "text": "Global wildfires"
     },
     {
-     "year": "Year 20",
-     "text": "Crop collapse"
+     "year": "Day 30",
+     "text": "Ecosystem collapse"
     }
-   ]
+   ],
+   "bg": "burning tree landscape"
   },
   {
    "type": "fact",
-   "say": "Here is the shocking twist. Scientists believe ancient lightning strikes created the very amino acids that sparked all life on Earth.",
+   "say": "Here is the wild part. Earth actually had thirty-five percent oxygen millions of years ago, creating dragonflies as large as crows.",
    "head": [],
    "kicker": "THE TWIST",
-   "big": "Lightning sparked all life",
-   "sublabel": "prebiotic chemistry on early Earth"
+   "big": "Earth Had 35% Oxygen Before",
+   "sublabel": "Giant insects ruled 300M years ago",
+   "bg": "fossil dragonfly amber"
   },
   {
    "type": "brand",
-   "say": "Without that initial spark, humanity would never have existed in the first place. Welcome to Parallel Earth.",
+   "say": "Explore alternate realities with us. Welcome to Parallel Earth.",
    "head": [
     "NOT JUST",
     "*A WHAT IF*"
-   ]
+   ],
+   "bg": ""
   },
   {
    "type": "cta",
@@ -145,7 +166,8 @@
     "SURVIVE IN THIS",
     "*TIMELINE?*"
    ],
-   "button": "FOLLOW FOR MORE"
+   "button": "FOLLOW FOR MORE",
+   "bg": ""
   }
  ],
  "min_seconds": 66
