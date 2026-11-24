@@ -135,9 +135,21 @@ def headline(cv, head, t, y0=430, maxsize=108):
 
 
 # ------------------------------------------------------------ backgrounds / bodies
+def has_bg():
+    return S.get('bgimg') is not None
+
+
 def bg(cv, t, dim=1.0, tint=None, tint_a=0.0):
     skia = S['skia']
     cv.clear(BG)
+    if has_bg():
+        cv.drawImage(S['bgimg'], 0, 0)
+        shade = skia.GradientShader.MakeLinear([skia.Point(0, 0), skia.Point(0, H)],
+                                               [acol(BG, 0.82), acol(BG, 0.35), acol(BG, 0.45), acol(BG, 0.85)], [0, 0.35, 0.65, 1])
+        cv.drawRect(skia.Rect(0, 0, W, H), skia.Paint(Shader=shade))
+        if tint is not None and tint_a > 0:
+            cv.drawRect(skia.Rect(0, 0, W, H), paint(tint, tint_a))
+        return
     if tint is not None and tint_a > 0:
         cv.drawRect(skia.Rect(0, 0, W, H), paint(tint, tint_a))
     style = S['style']
@@ -237,14 +249,14 @@ def fade_in(cv, t, dur=0.22):
         cv.drawRect(skia.Rect(0, 0, W, H), paint(BG, 1 - t / dur))
 
 
-def labels(cv, t, sc, y=1560, start=0.6):
+def labels(cv, t, sc, y=1330, start=0.6):
     k = ease((t - start) / 0.5)
     lab, sub = str(sc.get('label', '') or ''), str(sc.get('sublabel', '') or '')
     if lab:
         size = fit_size([lab.upper()], 960, 96)
         text(cv, lab.upper(), W / 2, y, size, S['accent'], k)
     if sub:
-        text(cv, sub, W / 2, y + 70, 42, MUTED, k, 'SemiBold')
+        text(cv, sub, W / 2, y + 62, 42, 0xFFC9D0EA if has_bg() else MUTED, k, 'SemiBold')
 
 
 # ------------------------------------------------------------ scene types
@@ -253,8 +265,10 @@ def sc_title(cv, t, D, sc):
     bg(cv, t)
     vis = sc.get('visual', 'earth')
     eff = sc.get('effect', 'spin')
-    cx, cy, r = 540, 1110, 240
-    if vis == 'moon' or eff == 'vanish':
+    cx, cy, r = 540, 1080, 235
+    if has_bg():
+        pass
+    elif vis == 'moon' or eff == 'vanish':
         # planet with an orbiting object that vanishes
         ang = -0.6 + t * 0.9
         mx, my = cx + 400 * math.cos(ang), cy + 150 * math.sin(ang)
@@ -267,9 +281,8 @@ def sc_title(cv, t, D, sc):
     else:
         sc2 = 1 + (0.05 * math.sin(t * 3) if eff == 'pulse' else 0)
         body(cv, vis, cx, cy, r * sc2, t * 0.15, ease(t / 0.6), t)
-    headline(cv, sc.get('head'), t, 400, 112)
+    headline(cv, sc.get('head'), t * 1.6, 400, 112)
     brand_tag(cv)
-    fade_in(cv, t)
 
 
 def sc_globe(cv, t, D, sc):
@@ -281,7 +294,7 @@ def sc_globe(cv, t, D, sc):
     if eff == 'heat': tint, ta = 0xFFFF5A1E, 0.18 * k
     if eff == 'freeze': tint, ta = 0xFF7FD3FF, 0.14 * k
     bg(cv, t, 1.0, tint, ta)
-    cx, cy, r = 540, 1060, 260
+    cx, cy, r = 540, 960, 225
     phase = t * 0.25
     a = 1.0
     colors = BODIES.get(kind, BODIES['earth'])
@@ -296,7 +309,9 @@ def sc_globe(cv, t, D, sc):
     elif eff in ('freeze', 'heat'):
         tgt = BODIES['ice'] if eff == 'freeze' else BODIES['lava']
         colors = (lerp_col(colors[0], tgt[0], k), lerp_col(colors[1], tgt[1], k))
-    if eff == 'wobble':
+    if has_bg():
+        pass
+    elif eff == 'wobble':
         ang = 23.4 + k * (34 * math.sin(t * 2.3) + 18 * math.sin(t * 5.1 + 1))
         cv.save(); cv.rotate(ang, cx, cy)
         cv.drawLine(cx, cy - r - 130, cx, cy + r + 130, paint(WHITE, 0.7, stroke=6))
@@ -344,20 +359,20 @@ def sc_counter(cv, t, D, sc):
     v = a0 + (a1 - a0) * k
     s = f"{sc.get('prefix', '')}{fmt_num(v, dec)}{sc.get('suffix', '')}"
     size = fit_size([s], 640, 170)
-    text(cv, s, 540, 1020 + size * 0.36, size, lerp_col(WHITE, S['accent'], k), 1, 'Black')
+    text(cv, s, 540, 960 + size * 0.36, size, lerp_col(WHITE, S['accent'], k), 1, 'Black')
     lab = str(sc.get('label', '') or '').upper()
     if lab:
         lsz = fit_size([lab], 560, 40, 'Bold', 26)
-        text(cv, lab, 540, 1020 + size * 0.36 + 70, lsz, MUTED, 1, 'Bold', spacing=4)
+        text(cv, lab, 540, 960 + size * 0.36 + 70, lsz, 0xFFC9D0EA if has_bg() else MUTED, 1, 'Bold', spacing=4)
     # progress ring
     skia = S['skia']
     frac = clamp(abs(v - a0) / max(1e-9, abs(a1 - a0)))
-    cv.drawCircle(540, 1020, 380, paint(WHITE, 0.07, stroke=10))
-    rect = skia.Rect(160, 640, 920, 1400)
+    cv.drawCircle(540, 960, 330, paint(WHITE, 0.07, stroke=10))
+    rect = skia.Rect(210, 630, 870, 1290)
     p = paint(S['accent'], 0.8, stroke=10)
     cv.drawArc(rect, -90, 360 * frac, False, p)
     if sc.get('sublabel'):
-        text(cv, str(sc['sublabel']), 540, 1520, 44, MUTED, ease((t - 1) / 0.5), 'SemiBold')
+        text(cv, str(sc['sublabel']), 540, 1385, 44, MUTED, ease((t - 1) / 0.5), 'SemiBold')
     headline(cv, sc.get('head'), t)
     brand_tag(cv)
     fade_in(cv, t)
@@ -370,9 +385,9 @@ def sc_bars(cv, t, D, sc):
     bw = 760 / n * 0.72
     gap = (760 - bw * n) / max(1, n - 1)
     x0 = 160
-    base = 1420
+    base = 1290
     rnd = random.Random(11)
-    hs = [rnd.uniform(380, 560) for _ in range(n)]
+    hs = [rnd.uniform(330, 520) for _ in range(n)]
     up = str(sc.get('trend', 'down')).lower() == 'up'
     for i in range(n):
         kk = ease_io((t - 0.4 - i * 0.15) / 1.4)
@@ -382,7 +397,7 @@ def sc_bars(cv, t, D, sc):
         cv.drawRRect(r, paint(col, 0.92))
     cv.drawLine(70, base + 4, W - 70, base + 4, paint(WHITE, 0.4, stroke=4))
     if sc.get('label'):
-        text(cv, str(sc['label']), 540, base + 80, 42, MUTED, 1, 'SemiBold')
+        text(cv, str(sc['label']), 540, base + 70, 42, MUTED, 1, 'SemiBold')
     headline(cv, sc.get('head'), t)
     brand_tag(cv)
     fade_in(cv, t)
@@ -417,7 +432,7 @@ def sc_compare(cv, t, D, sc):
     L = sc.get('left') or {}
     R = sc.get('right') or {}
     cards = [(str(L.get('name', 'OUR EARTH')).upper(), str(L.get('value', '')), BLUE_L, 820),
-             (str(R.get('name', 'PARALLEL EARTH')).upper(), str(R.get('value', '')), S['accent'], 1180)]
+             (str(R.get('name', 'PARALLEL EARTH')).upper(), str(R.get('value', '')), S['accent'], 1160)]
     for i, (nm, val, col, y) in enumerate(cards):
         k = ease((t - 0.4 - i * 0.6) / 0.5)
         rr = skia.RRect.MakeRectXY(skia.Rect(100, y - 150 + (1 - k) * 60, 980, y + 150 + (1 - k) * 60), 36, 36)
@@ -426,8 +441,8 @@ def sc_compare(cv, t, D, sc):
         text(cv, nm, 540, y - 50 + (1 - k) * 60, 44, col, k, 'Bold', spacing=5)
         vs = fit_size([val], 820, 120)
         text(cv, val, 540, y + 80 + (1 - k) * 60, vs, WHITE, k, 'Black')
-    text(cv, 'VS', 540, 1018, 54, MUTED, ease((t - 0.8) / 0.4), 'Black')
-    labels(cv, t, sc, 1520, 1.4)
+    text(cv, 'VS', 540, 1008, 54, MUTED, ease((t - 0.8) / 0.4), 'Black')
+    labels(cv, t, sc, 1410, 1.4)
     headline(cv, sc.get('head'), t, 400, 100)
     brand_tag(cv)
     fade_in(cv, t)
@@ -439,15 +454,16 @@ def sc_distance(cv, t, D, sc):
     k = ease_io(t / D)
     closer = str(sc.get('motion', 'apart')).lower() == 'closer'
     kk = 1 - k if closer else k
-    ex, ey = 300, 1300
-    bx, by = 700 + 140 * kk, 860 - 200 * kk
+    ex, ey = 300, 1150
+    bx, by = 700 + 140 * kk, 800 - 180 * kk
     p = paint(WHITE, 0.45, stroke=4)
     p.setPathEffect(skia.DashPathEffect.Make([18, 16], -t * 40))
-    cv.drawLine(ex, ey, bx, by, p)
-    body(cv, sc.get('a', 'earth'), ex, ey, 170, t * 0.2, 1, t)
-    b = sc.get('b', 'moon')
-    body(cv, b, bx, by, 90 if b in ('sun',) else 70, t * 0.2, 1, t)
-    labels(cv, t, sc, 1620, 1.0)
+    if not has_bg():
+        cv.drawLine(ex, ey, bx, by, p)
+        body(cv, sc.get('a', 'earth'), ex, ey, 150, t * 0.2, 1, t)
+        b = sc.get('b', 'moon')
+        body(cv, b, bx, by, 85 if b in ('sun',) else 65, t * 0.2, 1, t)
+    labels(cv, t, sc, 1390, 1.0)
     headline(cv, sc.get('head'), t)
     brand_tag(cv)
     fade_in(cv, t)
@@ -466,8 +482,9 @@ def sc_wave(cv, t, D, sc):
         for x in range(0, W + 12, 12):
             pth.lineTo(x, y0 + am * math.sin(x / W * fr * 2 * math.pi + tt * 1.6))
         pth.lineTo(W, H); pth.close(); return pth
-    cv.drawPath(wpath(base - 40, amp * 0.8, t + 1.3, 1.6), paint(BLUE_D, 0.55))
-    cv.drawPath(wpath(base, amp, t, 2.2), paint(0xFF2F7BE0, 0.9))
+    if not has_bg():
+        cv.drawPath(wpath(base - 40, amp * 0.8, t + 1.3, 1.6), paint(BLUE_D, 0.55))
+        cv.drawPath(wpath(base, amp, t, 2.2), paint(0xFF2F7BE0, 0.9))
     lab = str(sc.get('label', '') or '')
     if lab:
         size = fit_size([lab], 960, 180)
@@ -483,7 +500,7 @@ def sc_timeline(cv, t, D, sc):
     bg(cv, t)
     pts = (sc.get('points') or [])[:4] or [{'year': '????', 'text': ''}]
     n = len(pts)
-    top, bot = 720, 1600
+    top, bot = 700, 1360
     x = 190
     k = ease_io(t / (D * 0.85))
     cv.drawLine(x, top, x, top + (bot - top) * k, paint(WHITE, 0.35, stroke=6))
@@ -554,6 +571,95 @@ SCENES = {'title': sc_title, 'globe': sc_globe, 'counter': sc_counter, 'bars': s
           'fact': sc_fact, 'brand': sc_brand, 'cta': sc_cta}
 
 
+# ------------------------------------------------------------ captions + camera
+NO_CAPTION = ('title', 'words', 'brand', 'cta')
+
+
+def word_times(say, start, end):
+    words = str(say).split()
+    if not words:
+        return []
+    wts = [len(w) + (4 if w[-1] in '.!?' else 2 if w[-1] in ',;:' else 0) + 2 for w in words]
+    tot = float(sum(wts))
+    out, c = [], start
+    for w, wt in zip(words, wts):
+        d = (end - start) * wt / tot
+        out.append((w, c, c + d)); c += d
+    return out
+
+
+def chunks(wt, maxw=3):
+    groups, cur = [], []
+    for item in wt:
+        cur.append(item)
+        if len(cur) >= maxw or item[0][-1] in '.!?,;:':
+            groups.append(cur); cur = []
+    if cur:
+        groups.append(cur)
+    return groups
+
+
+def captions(cv, t, sc):
+    skia = S['skia']
+    if str(sc.get('type', '')).lower() in NO_CAPTION or not sc.get('_speech'):
+        return
+    st, en = sc['_speech']
+    groups = chunks(word_times(sc.get('say', ''), st, en))
+    cur = None
+    for g in groups:
+        if g[0][1] <= t < g[-1][2] + 0.05:
+            cur = g; break
+    if cur is None:
+        return
+    words = [re.sub(r'[^\w%°+\-.\'’$,]', '', w).strip('.,;:') .upper() for w, _, _ in cur]
+    words = [w for w in words if w] or ['']
+    size = 86
+    f = font(size, 'Black')
+    sp = f.measureText(' ')
+    total = sum(f.measureText(w) for w in words) + sp * (len(words) - 1)
+    while total > 980 and size > 52:
+        size -= 6; f = font(size, 'Black'); sp = f.measureText(' ')
+        total = sum(f.measureText(w) for w in words) + sp * (len(words) - 1)
+    pop = ease((t - cur[0][1]) / 0.12)
+    y = 1585
+    cv.save(); cv.translate(540, y); s_ = 0.85 + 0.15 * pop; cv.scale(s_, s_); cv.translate(-540, -y)
+    x = 540 - total / 2
+    stroke = skia.Paint(AntiAlias=True, Color=0xFF05070F, Style=skia.Paint.kStroke_Style, StrokeWidth=14)
+    stroke.setStrokeJoin(skia.Paint.kRound_Join)
+    for w, (_, a, b) in zip(words, cur):
+        active = a <= t < b + 0.05
+        cv.drawString(w, x, y + size * 0.35, f, stroke)
+        cv.drawString(w, x, y + size * 0.35, f, paint(CAPTION_HI if active else WHITE))
+        x += f.measureText(w) + sp
+    cv.restore()
+
+
+CAPTION_HI = 0xFFFFE14D
+
+
+def camera(cv, t, D, kind):
+    z = 1 + 0.09 * (1 - ease(t / 0.32)) + 0.045 * (t / max(D, 0.1))
+    dx = dy = 0.0
+    if kind == 'title' and t < 0.45:
+        k = 1 - t / 0.45
+        dx, dy = math.sin(t * 90) * 14 * k, math.cos(t * 77) * 14 * k
+    cv.translate(540 + dx, 960 + dy); cv.scale(z, z); cv.translate(-540, -960)
+
+
+def open_bg(path, D):
+    cmd = ['ffmpeg', '-loglevel', 'error', '-stream_loop', '-1', '-i', path, '-t', f'{D + 0.5:.2f}', '-an',
+           '-vf', f'scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={FPS},format=rgba', '-f', 'rawvideo', '-']
+    return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+
+def next_bg(proc, last):
+    skia = S['skia']
+    buf = proc.stdout.read(W * H * 4) if proc else b''
+    if len(buf) < W * H * 4:
+        return last
+    return skia.Image.fromarray(np.frombuffer(buf, np.uint8).reshape(H, W, 4).copy(), colorType=skia.kRGBA_8888_ColorType)
+
+
 # ------------------------------------------------------------ render
 def setup_state(cfg):
     import skia
@@ -577,11 +683,21 @@ def render_scene(args):
     cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-',
            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', '-r', str(FPS), tmp]
     pr = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    kind = str(sc.get('type', 'fact')).lower()
+    bgp = open_bg(sc['_bg'], D) if sc.get('_bg') and os.path.exists(sc['_bg']) else None
+    S['bgimg'] = None
     for f in range(n):
+        t = f / FPS
+        if bgp:
+            S['bgimg'] = next_bg(bgp, S['bgimg'])
         with surf as cv:
-            fn(cv, f / FPS, D, sc)
+            cv.clear(BG)
+            cv.save(); camera(cv, t, D, kind); fn(cv, t, D, sc); cv.restore()
+            captions(cv, t, sc)
         pr.stdin.write(surf.makeImageSnapshot().toarray(colorType=skia.kRGBA_8888_ColorType).tobytes())
     pr.stdin.close()
+    if bgp:
+        bgp.kill()
     ok = pr.wait() == 0
     if ok:
         os.replace(tmp, path)
@@ -594,13 +710,95 @@ def still(cfg, i, D, t, path):
     sc = cfg['scenes'][i]
     fn = SCENES.get(str(sc.get('type', 'fact')).lower(), sc_fact)
     surf = skia.Surface(W, H)
+    S['bgimg'] = None
+    if sc.get('_bg') and os.path.exists(sc['_bg']):
+        p = open_bg(sc['_bg'], D); S['bgimg'] = next_bg(p, None); p.kill()
     with surf as cv:
-        fn(cv, t, D, sc)
+        cv.clear(BG)
+        cv.save(); camera(cv, t, D, str(sc.get('type', ''))); fn(cv, t, D, sc); cv.restore()
+        captions(cv, t, sc)
     surf.makeImageSnapshot().save(path, skia.kPNG)
 
 
 def slug(s):
     return re.sub(r'[^a-z0-9]+', '_', str(s).lower()).strip('_')[:50] or 'video'
+
+
+def trim_silence(a, thr=0.01):
+    idx = np.where(np.abs(a) > thr)[0]
+    if len(idx) == 0:
+        return a
+    return a[max(0, idx[0] - int(SR * 0.03)):min(len(a), idx[-1] + int(SR * 0.08))]
+
+
+def sfx_track(n, starts, kinds):
+    rng = np.random.default_rng(5)
+    out = np.zeros(n, dtype=np.float32)
+
+    def place(sig, at):
+        i = int(at * SR)
+        if i >= n:
+            return
+        m = min(len(sig), n - i)
+        out[i:i + m] += sig[:m]
+    # whoosh: band-limited noise swell
+    L = int(SR * 0.55)
+    tt = np.arange(L) / SR
+    noise = rng.standard_normal(L).astype(np.float32)
+    spec = np.fft.rfft(noise)
+    fr = np.fft.rfftfreq(L, 1 / SR)
+    spec[(fr < 400) | (fr > 7000)] = 0
+    noise = np.fft.irfft(spec, L).astype(np.float32)
+    env = np.minimum(tt / 0.3, 1) * np.exp(-np.maximum(tt - 0.3, 0) * 14)
+    whoosh = (noise / (np.abs(noise).max() + 1e-9) * env * 0.16).astype(np.float32)
+    # boom: falling sine
+    Lb = int(SR * 1.2)
+    tb = np.arange(Lb) / SR
+    freq = 38 + 50 * np.exp(-tb * 6)
+    boom = (np.sin(2 * np.pi * np.cumsum(freq) / SR) * np.exp(-tb * 3.2) * 0.55).astype(np.float32)
+    for st, kd in zip(starts, kinds):
+        place(whoosh, max(0, st - 0.3))
+        if kd in ('title', 'words', 'brand'):
+            place(boom, st)
+    return out
+
+
+def fetch_backgrounds(scenes, work, log=print):
+    key = os.environ.get('PEXELS_API_KEY', '').strip()
+    if not key:
+        return
+    import requests
+    used = set()
+    for i, sc in enumerate(scenes):
+        q = str(sc.get('bg', '') or '').strip()
+        if not q or str(sc.get('type', '')).lower() in ('brand', 'cta'):
+            continue
+        try:
+            r = requests.get('https://api.pexels.com/videos/search', headers={'Authorization': key}, timeout=30,
+                             params={'query': q, 'orientation': 'portrait', 'size': 'medium', 'per_page': 12})
+            vids = [v for v in r.json().get('videos', []) if v['id'] not in used and v.get('duration', 0) >= 4]
+            if not vids:
+                r = requests.get('https://api.pexels.com/videos/search', headers={'Authorization': key}, timeout=30,
+                                 params={'query': q, 'per_page': 12})
+                vids = [v for v in r.json().get('videos', []) if v['id'] not in used and v.get('duration', 0) >= 4]
+            if not vids:
+                log(f'  bg "{q}": nothing found'); continue
+            v = random.Random(q).choice(vids[:5])
+            files = [f for f in v['video_files'] if f.get('file_type') == 'video/mp4' and f.get('width') and f.get('height')]
+            files.sort(key=lambda f: (abs(min(f['width'], f['height']) - 1080), -f['height']))
+            if not files:
+                continue
+            path = os.path.join(work, f'bg_{i+1:02d}.mp4')
+            with requests.get(files[0]['link'], stream=True, timeout=120) as dl:
+                dl.raise_for_status()
+                with open(path, 'wb') as fh:
+                    for chunk in dl.iter_content(1 << 20):
+                        fh.write(chunk)
+            used.add(v['id'])
+            sc['_bg'] = path
+            log(f'  bg "{q}": pexels video {v["id"]}')
+        except Exception as e:
+            log(f'  bg "{q}" failed: {str(e)[:120]}')
 
 
 def build(cfg, out_dir=None, workers=2, log=print):
@@ -627,7 +825,9 @@ def build(cfg, out_dir=None, workers=2, log=print):
             a = np.zeros(int(SR * 1.2), dtype=np.float32)
             if say:
                 a, _ = k.create(say, voice=voice, speed=spd, lang=lang)
-            a = np.concatenate([np.zeros(int(SR * 0.15)), a, np.zeros(int(SR * 0.4))]).astype(np.float32)
+                a = trim_silence(np.asarray(a, dtype=np.float32))
+            sc['_speech'] = [0.15, 0.15 + len(a) / SR]
+            a = np.concatenate([np.zeros(int(SR * 0.15)), a, np.zeros(int(SR * 0.35))]).astype(np.float32)
             sg.append(a); du.append(len(a) / SR)
         return sg, du
     segs, durs = voice_pass(speed)
@@ -644,6 +844,8 @@ def build(cfg, out_dir=None, workers=2, log=print):
     total = sum(frames)
     vo = np.concatenate(segs)
     vo = np.pad(vo, (0, max(0, int(total * SR) - len(vo))))[:int(total * SR)]
+    fetch_backgrounds(scenes, work, log)
+    starts = np.cumsum([0] + frames[:-1])
     # ambient pad, root note varies per title
     root = [49.0, 55.0, 58.3, 61.7, 65.4][int(hashlib.md5(name.encode()).hexdigest()[:2], 16) % 5]
     tt = np.arange(len(vo)) / SR
@@ -651,7 +853,7 @@ def build(cfg, out_dir=None, workers=2, log=print):
     pad *= 0.6 + 0.4 * np.sin(2 * np.pi * 0.05 * tt)
     fade = np.minimum(1, np.minimum(tt / 2.0, (total - tt) / 2.5))
     pad = pad / np.abs(pad).max() * 0.06 * fade
-    mix = vo / max(1e-6, np.abs(vo).max()) * 0.92 + pad
+    mix = vo / max(1e-6, np.abs(vo).max()) * 0.92 + pad + sfx_track(len(vo), starts, [str(sc.get('type', '')) for sc in scenes])
     sf.write(os.path.join(work, 'audio.wav'), mix.astype(np.float32), SR)
     log(f'Voice-over: {total:.1f} s  ->  rendering {len(scenes)} scenes...')
     jobs = [(cfg, i, frames[i], os.path.join(work, f'scene_{i+1:02d}.mp4')) for i in range(len(scenes))]

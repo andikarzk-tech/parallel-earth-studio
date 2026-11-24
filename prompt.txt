@@ -15,6 +15,11 @@ RULES
 JSON SHAPE
 {"title":"...","voice":"am_michael","speed":1.0,"accent":"orange","style":"space","scenes":[ ... ]}
 
+REAL FOOTAGE
+- Most scenes may also have "bg": a 2-4 word English search query for real stock video footage that matches what the narration describes (e.g. "ocean storm waves", "city lights aerial night", "volcano eruption lava", "forest fog morning", "crowd walking street").
+- Use "bg" on about 6-8 scenes. Leave "bg" as "" on scenes whose visual is the whole planet (globe with effect wobble, split, freeze, heat, crack, shrink, grow), on counter/compare/timeline when the graphic matters more, and always on brand and cta.
+- Footage should be concrete and filmable: nature, cities, people, weather, space photos. Never people's faces as the main subject, never violence.
+
 SCENE TYPES (every scene needs "type" and "say")
 1. title: {"type":"title","say":"...","head":["WHAT IF THE","*MOON*","DISAPPEARED?"],"visual":"earth|moon|sun|mars|twin","effect":"spin|pulse|vanish"}
    (use visual "moon" + effect "vanish" when something disappears)

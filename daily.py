@@ -115,7 +115,7 @@ def chat_id():
 
 def tg_send(cid, path, cfg, idx):
     cap = (f"🎬 Video {idx}/{N}\n\n<b>{cfg.get('yt_title') or cfg.get('title')}</b>\n\n{cfg.get('description', '')}\n\n{cfg.get('hashtags', '')}\n\n"
-           "✅ Cek fakta dulu sebelum upload. Centang label konten AI.")
+           "Stock footage: Pexels\n\n✅ Cek fakta dulu sebelum upload. Centang label konten AI.")
     with open(path, 'rb') as f:
         r = requests.post(f'https://api.telegram.org/bot{TG}/sendVideo', timeout=300,
                           data={'chat_id': cid, 'caption': cap[:1024], 'parse_mode': 'HTML', 'supports_streaming': 'true', 'width': 1080, 'height': 1920},
@@ -141,6 +141,7 @@ def daily_run(cid):
             cfg = mock_cfg(i) if MOCK else ask_gemini(models, avoid + [m['title'] for m in made], style)
             log(f'[{i}/{N}] {cfg["title"]}')
             cfg['min_seconds'] = MIN_SECONDS
+            cfg['speed'] = max(1.05, float(cfg.get('speed', 1.0) or 1.0))
             os.makedirs(CONF_DIR, exist_ok=True)
             if not MOCK:
                 json.dump(cfg, open(os.path.join(CONF_DIR, f'{WIB:%Y-%m-%d}_{i:02d}.json'), 'w'), ensure_ascii=False, indent=1)
