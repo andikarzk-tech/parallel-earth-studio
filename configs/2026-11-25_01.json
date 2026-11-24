@@ -1,0 +1,146 @@
+{
+ "title": "What If Earth Lost Its Magnetic Shield?",
+ "yt_title": "What If Earth's Magnetic Shield Collapsed? #shorts",
+ "description": "Earth's invisible magnetic field shields us from lethal cosmic radiation. Here is what would happen if that shield suddenly collapsed.",
+ "hashtags": "#whatif #science #earth #space #astronomy #parallelearth",
+ "voice": "am_fenrir",
+ "speed": 1.0,
+ "accent": "red",
+ "style": "grid",
+ "scenes": [
+  {
+   "type": "title",
+   "say": "What if Earth's magnetic shield suddenly vanished into thin air tomorrow morning?",
+   "head": [
+    "WHAT IF OUR",
+    "*MAGNETIC SHIELD*",
+    "VANISHED?"
+   ],
+   "visual": "earth",
+   "effect": "pulse"
+  },
+  {
+   "type": "globe",
+   "say": "Within minutes, our invisible protective cocoon would vanish, leaving the entire planet defenseless against deadly cosmic radiation.",
+   "head": [
+    "OUR SHIELD",
+    "*COLLAPSES*"
+   ],
+   "body": "earth",
+   "effect": "crack",
+   "label": "DEFENSELESS",
+   "sublabel": "exposed to deep space"
+  },
+  {
+   "type": "counter",
+   "say": "Trillions of energetic solar particles would immediately bombard the upper atmosphere at over three million kilometers per hour.",
+   "head": [
+    "SOLAR WIND",
+    "*SPEED*"
+   ],
+   "from": 0,
+   "to": 3000000,
+   "decimals": 0,
+   "prefix": "",
+   "suffix": " km/h",
+   "label": "solar particle velocity"
+  },
+  {
+   "type": "words",
+   "say": "Every orbital satellite would fry instantly. Global communications, GPS navigation, and entire continental power grids would permanently collapse.",
+   "words": [
+    "SATELLITES FRY",
+    "GRIDS FAIL",
+    "GLOBAL BLACKOUT"
+   ]
+  },
+  {
+   "type": "wave",
+   "say": "Without magnetic protection, fierce solar winds would violently strip away our ozone layer and bleed our atmosphere into the void.",
+   "head": [
+    "OZONE LAYER",
+    "*DESTROYED*"
+   ],
+   "trend": "down",
+   "label": "-100%",
+   "sublabel": "radiation protection"
+  },
+  {
+   "type": "compare",
+   "say": "Over centuries, ocean water would evaporate into deep space. Earth could slowly transform into a frozen, barren wasteland just like Mars.",
+   "head": [
+    "OUR CHILLING",
+    "*FUTURE*"
+   ],
+   "left": {
+    "name": "Earth Today",
+    "value": "BLUE OASIS"
+   },
+   "right": {
+    "name": "Parallel Earth",
+    "value": "BARREN MARS"
+   },
+   "label": "planetary fate",
+   "sublabel": "loss of atmosphere"
+  },
+  {
+   "type": "bars",
+   "say": "Ultraviolet and cosmic radiation levels on the surface would soar, making stepping outside in daylight deadly for all living creatures.",
+   "head": [
+    "SURFACE",
+    "*RADIATION*"
+   ],
+   "trend": "up",
+   "label": "Lethal surface radiation"
+  },
+  {
+   "type": "timeline",
+   "say": "This is not pure fantasy. Earth's magnetic poles have actually flipped hundreds of times, weakening our protective bubble during transitions.",
+   "head": [
+    "HISTORIC",
+    "*POLE FLIPS*"
+   ],
+   "points": [
+    {
+     "year": "780k BC",
+     "text": "Last full pole flip"
+    },
+    {
+     "year": "1859",
+     "text": "Carrington superstorm"
+    },
+    {
+     "year": "Today",
+     "text": "Magnetic drift quickens"
+    }
+   ]
+  },
+  {
+   "type": "fact",
+   "say": "In fact, scientists have discovered that Earth's magnetic field has already weakened by nearly ten percent over the last two centuries.",
+   "head": [],
+   "kicker": "THE TWIST",
+   "big": "10% Weaker Already",
+   "sublabel": "measured over the last 200 years"
+  },
+  {
+   "type": "brand",
+   "say": "That invisible magnetic bubble is the only reason life breathes on this rock. Welcome to Parallel Earth.",
+   "head": [
+    "NOT JUST",
+    "*A WHAT IF*"
+   ]
+  },
+  {
+   "type": "cta",
+   "say": "Could humanity survive underground if the field vanished completely? Tell us below, and follow for more.",
+   "head": [
+    "WOULD YOU",
+    "SURVIVE IN THIS",
+    "*TIMELINE?*"
+   ],
+   "button": "FOLLOW FOR MORE"
+  }
+ ],
+ "min_seconds": 66
+}
