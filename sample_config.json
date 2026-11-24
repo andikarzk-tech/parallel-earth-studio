@@ -1,0 +1,12 @@
+{"title":"What if Earth stopped spinning","voice":"am_michael","speed":1.0,"accent":"cyan","style":"grid",
+"scenes":[
+{"type":"title","say":"What if Earth suddenly stopped spinning?","head":["WHAT IF EARTH","*STOPPED*","SPINNING?"],"visual":"earth","effect":"pulse"},
+{"type":"counter","say":"Right now, the ground under your feet moves at about one thousand six hundred and seventy kilometers per hour.","head":["YOU ARE MOVING","*RIGHT NOW*"],"from":0,"to":1670,"suffix":" km/h","label":"speed at the equator"},
+{"type":"globe","say":"If the planet stopped, the atmosphere would not.","head":["THE PLANET","*STOPS*"],"body":"earth","effect":"stop","label":"The air keeps going","sublabel":"at supersonic speed"},
+{"type":"words","say":"Winds faster than any hurricane. Oceans rushing toward the poles. Cities wiped clean.","words":["SUPERSONIC WINDS","OCEANS ON THE MOVE","CITIES ERASED"]},
+{"type":"compare","say":"And one day would no longer last twenty four hours. It would last an entire year.","head":["HOW LONG IS","*ONE DAY?*"],"left":{"name":"Our Earth","value":"24 HOURS"},"right":{"name":"Parallel Earth","value":"365 DAYS"}},
+{"type":"globe","say":"Half the planet would bake under the Sun, while the other half would freeze in endless night.","head":["HALF FIRE","*HALF ICE*"],"body":"earth","effect":"split"},
+{"type":"fact","say":"The good news? Physics says this is almost impossible.","kicker":"the good news","big":"Almost impossible","sublabel":"Earth is slowing by about 2 ms per century"},
+{"type":"brand","say":"But here, anything is possible. Welcome to Parallel Earth.","head":["ANYTHING IS","*POSSIBLE*"]},
+{"type":"cta","say":"Would you survive in this timeline? Follow for more.","head":["WOULD YOU","SURVIVE IN THIS","*TIMELINE?*"],"button":"Follow for more"}
+]}

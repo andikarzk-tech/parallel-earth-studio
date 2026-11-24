@@ -1,0 +1,667 @@
+"""Parallel Earth template engine.
+One JSON config -> Kokoro voice-over + motion-graphic scenes + ambient music -> finished 9:16 MP4.
+Usage: python3 engine.py config.json   (or import and call build(cfg_dict))
+Env: PE_MODEL_DIR (kokoro-v1.0.onnx, voices-v1.0.bin), PE_FONT_DIR (InterDisplay-*.otf), PE_OUT_DIR
+"""
+import os, sys, json, math, random, re, subprocess, hashlib
+import numpy as np
+
+W, H, FPS = 1080, 1920, 30
+SR = 24000
+MODEL_DIR = os.environ.get('PE_MODEL_DIR', '/content/pe_models')
+FONT_DIR = os.environ.get('PE_FONT_DIR', '/content/pe_fonts')
+OUT_DIR = os.environ.get('PE_OUT_DIR', '/content')
+
+BG = 0xFF0A0F24
+WHITE = 0xFFF4F7FF
+MUTED = 0xFF8A93B8
+BLUE_L, BLUE_D = 0xFF5AB0FF, 0xFF1446A0
+ACCENTS = {'orange': 0xFFFFB862, 'red': 0xFFFF5A4E, 'green': 0xFF5EE6A8, 'purple': 0xFFB79CFF,
+           'cyan': 0xFF5FE3F5, 'yellow': 0xFFFFD84D}
+BODIES = {'earth': (0xFF5AB0FF, 0xFF1446A0), 'mars': (0xFFFF8A5B, 0xFF8E2A12), 'ice': (0xFFE6F7FF, 0xFF7FB6D6),
+          'lava': (0xFFFFB347, 0xFFB3200E), 'sun': (0xFFFFF1A8, 0xFFFF8A00), 'venus': (0xFFFFE0A3, 0xFFC98A2E),
+          'parallel': (0xFFFFB862, 0xFFC2410C)}
+
+S = {}  # per-video state: accent, style, fonts
+
+
+def skia_mod():
+    import skia
+    return skia
+
+
+# ------------------------------------------------------------ helpers
+def clamp(x, a=0.0, b=1.0):
+    return max(a, min(b, x))
+
+
+def ease(x):
+    x = clamp(x); return 1 - (1 - x) ** 3
+
+
+def ease_io(x):
+    x = clamp(x); return 3 * x * x - 2 * x * x * x
+
+
+def acol(c, a):
+    a = clamp(a); return ((int(((c >> 24) & 255) * a)) << 24) | (c & 0xFFFFFF)
+
+
+def lerp_col(c1, c2, k):
+    k = clamp(k)
+    out = 0xFF000000
+    for sh in (16, 8, 0):
+        a, b = (c1 >> sh) & 255, (c2 >> sh) & 255
+        out |= int(a + (b - a) * k) << sh
+    return out
+
+
+def paint(c, a=1.0, stroke=0):
+    skia = S['skia']
+    p = skia.Paint(AntiAlias=True, Color=acol(c, a))
+    if stroke:
+        p.setStyle(skia.Paint.kStroke_Style); p.setStrokeWidth(stroke); p.setStrokeCap(skia.Paint.kRound_Cap)
+    return p
+
+
+def font(size, weight='Black'):
+    skia = S['skia']
+    f = skia.Font(S['tf'][weight], size)
+    f.setEdging(skia.Font.Edging.kAntiAlias)
+    return f
+
+
+def text(cv, s, x, y, size, color=WHITE, a=1.0, weight='Black', align='center', spacing=0.0, scale=1.0):
+    if a <= 0 or not s:
+        return
+    f = font(size, weight)
+    w = f.measureText(s) + spacing * max(0, len(s) - 1)
+    cv.save(); cv.translate(x, y); cv.scale(scale, scale)
+    ox = -w / 2 if align == 'center' else 0
+    p = paint(color, a)
+    if spacing == 0:
+        cv.drawString(s, ox, 0, f, p)
+    else:
+        cx = ox
+        for ch in s:
+            cv.drawString(ch, cx, 0, f, p); cx += f.measureText(ch) + spacing
+    cv.restore()
+
+
+def wrap(s, size, maxw, weight='Black'):
+    f = font(size, weight)
+    words, lines, cur = str(s).split(), [], ''
+    for wd in words:
+        t = (cur + ' ' + wd).strip()
+        if f.measureText(t) <= maxw or not cur:
+            cur = t
+        else:
+            lines.append(cur); cur = wd
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def fit_size(lines, maxw, start, weight='Black', minsize=48):
+    size = start
+    while size > minsize and max(font(size, weight).measureText(l) for l in lines) > maxw:
+        size -= 4
+    return size
+
+
+def parse_head(head):
+    """head: list of lines or a string with '|' breaks; *word* marks accent lines."""
+    if isinstance(head, str):
+        head = head.split('|')
+    out = []
+    for l in head or []:
+        l = str(l).strip()
+        if not l:
+            continue
+        acc = l.startswith('*') and l.endswith('*') and len(l) > 2
+        out.append((l.strip('*').upper(), S['accent'] if acc else WHITE))
+    return out
+
+
+def headline(cv, head, t, y0=430, maxsize=108):
+    lines = parse_head(head)
+    if not lines:
+        return
+    size = fit_size([l for l, _ in lines], 960, maxsize)
+    gap = size * 1.14
+    for i, (s, c) in enumerate(lines):
+        k = ease((t - i * 0.12) / 0.45)
+        text(cv, s, W / 2, y0 + i * gap + (1 - k) * 40, size, c, k)
+
+
+# ------------------------------------------------------------ backgrounds / bodies
+def bg(cv, t, dim=1.0, tint=None, tint_a=0.0):
+    skia = S['skia']
+    cv.clear(BG)
+    if tint is not None and tint_a > 0:
+        cv.drawRect(skia.Rect(0, 0, W, H), paint(tint, tint_a))
+    style = S['style']
+    if style == 'grid':
+        gp = paint(BLUE_L, 0.07 * dim, stroke=2)
+        off = (t * 30) % 120
+        for y in range(0, H + 120, 120):
+            cv.drawLine(0, y + off, W, y + off, gp)
+        for x in range(0, W + 120, 120):
+            cv.drawLine(x, 0, x, H, gp)
+    for (x, y, r, ph, vx) in S['stars']:
+        if style == 'dust':
+            yy = (y - t * vx * 40) % H
+            cv.drawCircle(x, yy, r * 1.3, paint(S['accent'] if ph > 5 else WHITE, dim * 0.4))
+        else:
+            cv.drawCircle(x, y, r, paint(WHITE, dim * (0.35 + 0.35 * math.sin(t * 1.7 + ph))))
+
+
+def globe(cv, cx, cy, r, light, dark, phase=0.0, a=1.0, grid_a=0.28):
+    skia = S['skia']
+    if a <= 0 or r <= 1:
+        return
+    sh = skia.GradientShader.MakeRadial(skia.Point(cx - r * 0.3, cy - r * 0.4), r * 1.5, [light, dark])
+    p = skia.Paint(AntiAlias=True, Shader=sh); p.setAlphaf(clamp(a))
+    cv.drawCircle(cx, cy, r, p)
+    cv.save()
+    path = skia.Path(); path.addCircle(cx, cy, r)
+    cv.clipPath(path, doAntiAlias=True)
+    gp = paint(WHITE, grid_a * a, stroke=max(2, r * 0.018))
+    for k in range(4):
+        ph = (phase + k / 4.0) % 1.0
+        rx = abs(math.cos(ph * math.pi)) * r
+        cv.drawOval(skia.Rect(cx - rx, cy - r, cx + rx, cy + r), gp)
+    for lat in (-0.5, 0, 0.5):
+        yy = cy + lat * r
+        hw = math.sqrt(max(0, r * r - (lat * r) ** 2))
+        cv.drawOval(skia.Rect(cx - hw, yy - r * 0.12, cx + hw, yy + r * 0.12), gp)
+    cv.restore()
+    cv.drawCircle(cx, cy, r, paint(WHITE, 0.18 * a, stroke=3))
+
+
+def moon(cv, cx, cy, r, a=1.0):
+    skia = S['skia']
+    if a <= 0 or r <= 1:
+        return
+    sh = skia.GradientShader.MakeRadial(skia.Point(cx - r * 0.3, cy - r * 0.35), r * 1.5, [0xFFE9ECF5, 0xFF6B7290])
+    p = skia.Paint(AntiAlias=True, Shader=sh); p.setAlphaf(clamp(a))
+    cv.drawCircle(cx, cy, r, p)
+    for (dx, dy, rr) in [(-0.3, -0.2, 0.18), (0.25, 0.15, 0.22), (-0.05, 0.42, 0.12), (0.35, -0.35, 0.1)]:
+        cv.drawCircle(cx + dx * r, cy + dy * r, rr * r, paint(0xFF5A6080, 0.35 * a))
+
+
+def sun(cv, cx, cy, r, a=1.0, t=0.0):
+    skia = S['skia']
+    glow = skia.GradientShader.MakeRadial(skia.Point(cx, cy), r * 2.2, [acol(0xFFFFB347, 0.45 * a), 0x00000000])
+    cv.drawCircle(cx, cy, r * 2.2, skia.Paint(AntiAlias=True, Shader=glow))
+    sh = skia.GradientShader.MakeRadial(skia.Point(cx - r * 0.2, cy - r * 0.2), r * 1.3, [0xFFFFF6C8, 0xFFFF8A00])
+    p = skia.Paint(AntiAlias=True, Shader=sh); p.setAlphaf(clamp(a))
+    cv.drawCircle(cx, cy, r * (1 + 0.015 * math.sin(t * 4)), p)
+
+
+def body(cv, kind, cx, cy, r, phase=0.0, a=1.0, t=0.0, colors=None):
+    kind = (kind or 'earth').lower()
+    if kind == 'moon':
+        moon(cv, cx, cy, r, a)
+    elif kind == 'sun':
+        sun(cv, cx, cy, r, a, t)
+    elif kind == 'twin':
+        twin_mark(cv, cx, cy, r / 100.0, a)
+    elif kind == 'none':
+        return
+    else:
+        l, d = colors or BODIES.get(kind, BODIES['earth'])
+        globe(cv, cx, cy, r, l, d, phase, a)
+
+
+def twin_mark(cv, cx, cy, s, a=1.0):
+    skia = S['skia']
+    r, d = 100 * s, 40 * s
+    globe(cv, cx + d, cy, r, *BODIES['parallel'], 0.1, a, 0.22)
+    globe(cv, cx - d, cy, r, *BODIES['earth'], 0.1, a, 0.22)
+    cv.save()
+    pth = skia.Path(); pth.addCircle(cx - d, cy, r)
+    cv.clipPath(pth, doAntiAlias=True)
+    cv.drawCircle(cx + d, cy, r, paint(WHITE, 0.95 * a))
+    cv.restore()
+
+
+def brand_tag(cv, a=1.0):
+    twin_mark(cv, 412, 150, 0.16, a)
+    text(cv, 'PARALLEL EARTH', 448, 162, 34, WHITE, 0.85 * a, 'Bold', 'left', 4)
+
+
+def fade_in(cv, t, dur=0.22):
+    skia = S['skia']
+    if t < dur:
+        cv.drawRect(skia.Rect(0, 0, W, H), paint(BG, 1 - t / dur))
+
+
+def labels(cv, t, sc, y=1560, start=0.6):
+    k = ease((t - start) / 0.5)
+    lab, sub = str(sc.get('label', '') or ''), str(sc.get('sublabel', '') or '')
+    if lab:
+        size = fit_size([lab.upper()], 960, 96)
+        text(cv, lab.upper(), W / 2, y, size, S['accent'], k)
+    if sub:
+        text(cv, sub, W / 2, y + 70, 42, MUTED, k, 'SemiBold')
+
+
+# ------------------------------------------------------------ scene types
+def sc_title(cv, t, D, sc):
+    skia = S['skia']
+    bg(cv, t)
+    vis = sc.get('visual', 'earth')
+    eff = sc.get('effect', 'spin')
+    cx, cy, r = 540, 1110, 240
+    if vis == 'moon' or eff == 'vanish':
+        # planet with an orbiting object that vanishes
+        ang = -0.6 + t * 0.9
+        mx, my = cx + 400 * math.cos(ang), cy + 150 * math.sin(ang)
+        van = ease((t - D * 0.45) / 0.9) if eff == 'vanish' else 0
+        cv.drawOval(skia.Rect(cx - 400, cy - 150, cx + 400, cy + 150), paint(WHITE, 0.16 * (1 - van), stroke=3))
+        behind = math.sin(ang) < 0
+        if behind: moon(cv, mx, my, 62, 1 - van)
+        body(cv, 'earth' if vis == 'moon' else vis, cx, cy, r, t * 0.15, 1, t)
+        if not behind: moon(cv, mx, my, 62, 1 - van)
+    else:
+        sc2 = 1 + (0.05 * math.sin(t * 3) if eff == 'pulse' else 0)
+        body(cv, vis, cx, cy, r * sc2, t * 0.15, ease(t / 0.6), t)
+    headline(cv, sc.get('head'), t, 400, 112)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+def sc_globe(cv, t, D, sc):
+    skia = S['skia']
+    eff = (sc.get('effect') or 'spin').lower()
+    kind = (sc.get('body') or 'earth').lower()
+    k = ease_io((t - 0.4) / max(0.5, D * 0.75))
+    tint, ta = None, 0
+    if eff == 'heat': tint, ta = 0xFFFF5A1E, 0.18 * k
+    if eff == 'freeze': tint, ta = 0xFF7FD3FF, 0.14 * k
+    bg(cv, t, 1.0, tint, ta)
+    cx, cy, r = 540, 1060, 260
+    phase = t * 0.25
+    a = 1.0
+    colors = BODIES.get(kind, BODIES['earth'])
+    if eff == 'stop':
+        phase = 0.25 * (D * 0.75) * (1 - (1 - k) ** 2) / 2
+    elif eff == 'shrink':
+        r *= 1 - 0.6 * k
+    elif eff == 'grow':
+        r *= 1 + 0.45 * k
+    elif eff == 'fade':
+        a = 1 - 0.92 * k
+    elif eff in ('freeze', 'heat'):
+        tgt = BODIES['ice'] if eff == 'freeze' else BODIES['lava']
+        colors = (lerp_col(colors[0], tgt[0], k), lerp_col(colors[1], tgt[1], k))
+    if eff == 'wobble':
+        ang = 23.4 + k * (34 * math.sin(t * 2.3) + 18 * math.sin(t * 5.1 + 1))
+        cv.save(); cv.rotate(ang, cx, cy)
+        cv.drawLine(cx, cy - r - 130, cx, cy + r + 130, paint(WHITE, 0.7, stroke=6))
+        body(cv, kind, cx, cy, r, phase, 1, t, colors)
+        cv.restore()
+    elif eff == 'split':
+        off = 90 * k
+        for side, dx in ((-1, -off), (1, off)):
+            cv.save()
+            cv.clipRect(skia.Rect(0 if side < 0 else cx, 0, cx if side < 0 else W, H))
+            body(cv, kind, cx + dx, cy + (30 * k * side), r, phase, 1, t, colors if side < 0 else BODIES['parallel'])
+            cv.restore()
+    else:
+        body(cv, kind, cx, cy, r, phase, a, t, colors)
+        if eff == 'crack':
+            pts = [(cx - r * 0.9, cy - r * 0.2), (cx - r * 0.4, cy + r * 0.05), (cx - r * 0.1, cy - r * 0.25), (cx + r * 0.3, cy + r * 0.1), (cx + r * 0.85, cy - r * 0.05)]
+            n = 1 + int(k * (len(pts) - 1) + 0.999)
+            p = skia.Path(); p.moveTo(*pts[0])
+            for q in pts[1:n]: p.lineTo(*q)
+            cv.drawPath(p, paint(0xFFFFE6A0, 0.95, stroke=9))
+        if eff == 'fade':
+            cv.drawCircle(cx, cy, r, paint(WHITE, 0.25 * k, stroke=3))
+        if eff == 'heat':
+            glow = skia.GradientShader.MakeRadial(skia.Point(cx, cy), r * 1.8, [acol(0xFFFF6A00, 0.35 * k), 0x00000000])
+            cv.drawCircle(cx, cy, r * 1.8, skia.Paint(AntiAlias=True, Shader=glow))
+    labels(cv, t, sc)
+    headline(cv, sc.get('head'), t)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+def fmt_num(v, dec):
+    s = f'{v:,.{dec}f}'
+    return s
+
+
+def sc_counter(cv, t, D, sc):
+    bg(cv, t)
+    try:
+        a0, a1 = float(sc.get('from', 0)), float(sc.get('to', 100))
+    except Exception:
+        a0, a1 = 0.0, 100.0
+    dec = int(sc.get('decimals', 0) or 0)
+    k = ease_io((t - 0.5) / max(0.5, D * 0.6))
+    v = a0 + (a1 - a0) * k
+    s = f"{sc.get('prefix', '')}{fmt_num(v, dec)}{sc.get('suffix', '')}"
+    size = fit_size([s], 640, 170)
+    text(cv, s, 540, 1020 + size * 0.36, size, lerp_col(WHITE, S['accent'], k), 1, 'Black')
+    lab = str(sc.get('label', '') or '').upper()
+    if lab:
+        lsz = fit_size([lab], 560, 40, 'Bold', 26)
+        text(cv, lab, 540, 1020 + size * 0.36 + 70, lsz, MUTED, 1, 'Bold', spacing=4)
+    # progress ring
+    skia = S['skia']
+    frac = clamp(abs(v - a0) / max(1e-9, abs(a1 - a0)))
+    cv.drawCircle(540, 1020, 380, paint(WHITE, 0.07, stroke=10))
+    rect = skia.Rect(160, 640, 920, 1400)
+    p = paint(S['accent'], 0.8, stroke=10)
+    cv.drawArc(rect, -90, 360 * frac, False, p)
+    if sc.get('sublabel'):
+        text(cv, str(sc['sublabel']), 540, 1520, 44, MUTED, ease((t - 1) / 0.5), 'SemiBold')
+    headline(cv, sc.get('head'), t)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+def sc_bars(cv, t, D, sc):
+    skia = S['skia']
+    bg(cv, t, 0.6)
+    n = int(clamp(int(sc.get('n', 7) or 7), 3, 9))
+    bw = 760 / n * 0.72
+    gap = (760 - bw * n) / max(1, n - 1)
+    x0 = 160
+    base = 1420
+    rnd = random.Random(11)
+    hs = [rnd.uniform(380, 560) for _ in range(n)]
+    up = str(sc.get('trend', 'down')).lower() == 'up'
+    for i in range(n):
+        kk = ease_io((t - 0.4 - i * 0.15) / 1.4)
+        h = hs[i] * ((0.18 + 0.82 * kk) if up else (1 - 0.82 * kk))
+        col = lerp_col(BLUE_L, S['accent'], kk)
+        r = skia.RRect.MakeRectXY(skia.Rect(x0 + i * (bw + gap), base - h, x0 + i * (bw + gap) + bw, base), 16, 16)
+        cv.drawRRect(r, paint(col, 0.92))
+    cv.drawLine(70, base + 4, W - 70, base + 4, paint(WHITE, 0.4, stroke=4))
+    if sc.get('label'):
+        text(cv, str(sc['label']), 540, base + 80, 42, MUTED, 1, 'SemiBold')
+    headline(cv, sc.get('head'), t)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+def sc_words(cv, t, D, sc):
+    words = [str(w) for w in (sc.get('words') or ['WHAT IF'])][:3]
+    n = len(words)
+    seg = D / n
+    i = min(n - 1, int(t // seg))
+    lt = t - i * seg
+    tints = [0xFF4FB3FF, S['accent'], 0xFF8A5CFF]
+    cols = [BLUE_L, S['accent'], WHITE]
+    bg(cv, t, 0.7, tints[i % 3], 0.16)
+    k = ease(lt / 0.3)
+    sc_ = 1.35 - 0.35 * k
+    lines = wrap(words[i].upper(), 150, 960)
+    size = fit_size(lines, 960, 150)
+    jit = (math.sin(t * 60) * 5, math.cos(t * 47) * 5) if i == n - 1 and n > 1 else (0, 0)
+    y0 = 1040 - (len(lines) - 1) * size * 0.55
+    for j, l in enumerate(lines):
+        text(cv, l, 540 + jit[0], y0 + j * size * 1.1 + jit[1], size, cols[i % 3], k, 'Black', scale=sc_)
+    for j in range(n):
+        cv.drawCircle(540 + (j - (n - 1) / 2) * 60, 1360, 12, paint(WHITE, 0.9 if j == i else 0.25))
+    brand_tag(cv)
+    fade_in(cv, lt, 0.12)
+
+
+def sc_compare(cv, t, D, sc):
+    skia = S['skia']
+    bg(cv, t)
+    L = sc.get('left') or {}
+    R = sc.get('right') or {}
+    cards = [(str(L.get('name', 'OUR EARTH')).upper(), str(L.get('value', '')), BLUE_L, 820),
+             (str(R.get('name', 'PARALLEL EARTH')).upper(), str(R.get('value', '')), S['accent'], 1180)]
+    for i, (nm, val, col, y) in enumerate(cards):
+        k = ease((t - 0.4 - i * 0.6) / 0.5)
+        rr = skia.RRect.MakeRectXY(skia.Rect(100, y - 150 + (1 - k) * 60, 980, y + 150 + (1 - k) * 60), 36, 36)
+        cv.drawRRect(rr, paint(col, 0.12 * k))
+        cv.drawRRect(rr, paint(col, 0.7 * k, stroke=4))
+        text(cv, nm, 540, y - 50 + (1 - k) * 60, 44, col, k, 'Bold', spacing=5)
+        vs = fit_size([val], 820, 120)
+        text(cv, val, 540, y + 80 + (1 - k) * 60, vs, WHITE, k, 'Black')
+    text(cv, 'VS', 540, 1018, 54, MUTED, ease((t - 0.8) / 0.4), 'Black')
+    labels(cv, t, sc, 1520, 1.4)
+    headline(cv, sc.get('head'), t, 400, 100)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+def sc_distance(cv, t, D, sc):
+    skia = S['skia']
+    bg(cv, t)
+    k = ease_io(t / D)
+    closer = str(sc.get('motion', 'apart')).lower() == 'closer'
+    kk = 1 - k if closer else k
+    ex, ey = 300, 1300
+    bx, by = 700 + 140 * kk, 860 - 200 * kk
+    p = paint(WHITE, 0.45, stroke=4)
+    p.setPathEffect(skia.DashPathEffect.Make([18, 16], -t * 40))
+    cv.drawLine(ex, ey, bx, by, p)
+    body(cv, sc.get('a', 'earth'), ex, ey, 170, t * 0.2, 1, t)
+    b = sc.get('b', 'moon')
+    body(cv, b, bx, by, 90 if b in ('sun',) else 70, t * 0.2, 1, t)
+    labels(cv, t, sc, 1620, 1.0)
+    headline(cv, sc.get('head'), t)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+def sc_wave(cv, t, D, sc):
+    skia = S['skia']
+    bg(cv, t, 0.6)
+    k = ease_io((t - 0.6) / max(0.5, D * 0.6))
+    up = str(sc.get('trend', 'down')).lower() == 'up'
+    amp = (55 + 130 * k) if up else (170 - 115 * k)
+    base = 1230 if not up else 1260 - 120 * k
+
+    def wpath(y0, am, tt, fr):
+        pth = skia.Path(); pth.moveTo(0, H)
+        for x in range(0, W + 12, 12):
+            pth.lineTo(x, y0 + am * math.sin(x / W * fr * 2 * math.pi + tt * 1.6))
+        pth.lineTo(W, H); pth.close(); return pth
+    cv.drawPath(wpath(base - 40, amp * 0.8, t + 1.3, 1.6), paint(BLUE_D, 0.55))
+    cv.drawPath(wpath(base, amp, t, 2.2), paint(0xFF2F7BE0, 0.9))
+    lab = str(sc.get('label', '') or '')
+    if lab:
+        size = fit_size([lab], 960, 180)
+        text(cv, lab, 540, 850, size, lerp_col(WHITE, S['accent'], k), 1, 'Black')
+    if sc.get('sublabel'):
+        text(cv, str(sc['sublabel']).upper(), 540, 920, 40, MUTED, 1, 'Bold', spacing=5)
+    headline(cv, sc.get('head'), t)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+def sc_timeline(cv, t, D, sc):
+    bg(cv, t)
+    pts = (sc.get('points') or [])[:4] or [{'year': '????', 'text': ''}]
+    n = len(pts)
+    top, bot = 720, 1600
+    x = 190
+    k = ease_io(t / (D * 0.85))
+    cv.drawLine(x, top, x, top + (bot - top) * k, paint(WHITE, 0.35, stroke=6))
+    step = (bot - top) / max(1, n - 1) if n > 1 else 0
+    for i, p in enumerate(pts):
+        y = top + i * step if n > 1 else (top + bot) / 2
+        appear = ease((t - (i / n) * D * 0.8) / 0.4)
+        last = i == n - 1
+        cv.drawCircle(x, y, 22 * appear, paint(S['accent'] if last else BLUE_L, 1))
+        text(cv, str(p.get('year', '')), x + 60, y + 22, 76, S['accent'] if last else WHITE, appear, 'Black', 'left')
+        for j, l in enumerate(wrap(str(p.get('text', '')), 40, 760, 'SemiBold')[:2]):
+            text(cv, l, x + 62, y + 76 + j * 48, 40, MUTED, appear, 'SemiBold', 'left')
+    headline(cv, sc.get('head'), t, 400, 100)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+def sc_fact(cv, t, D, sc):
+    bg(cv, t)
+    kicker = str(sc.get('kicker', '') or '').upper()
+    if kicker:
+        text(cv, kicker, 540, 620, 48, S['accent'], ease(t / 0.4), 'Bold', spacing=8)
+    big = str(sc.get('big', '') or sc.get('label', '') or '')
+    lines = wrap(big.upper(), 110, 940)
+    size = fit_size(lines, 940, 110)
+    lines = wrap(big.upper(), size, 940)
+    y0 = 1000 - (len(lines) - 1) * size * 0.55
+    for j, l in enumerate(lines):
+        kk = ease((t - 0.2 - j * 0.12) / 0.45)
+        text(cv, l, 540, y0 + j * size * 1.12 + (1 - kk) * 30, size, WHITE if j % 2 == 0 else S['accent'], kk)
+    if sc.get('sublabel'):
+        text(cv, str(sc['sublabel']), 540, y0 + len(lines) * size * 1.12 + 60, 44, MUTED, ease((t - 0.8) / 0.5), 'SemiBold')
+    headline(cv, sc.get('head'), t, 400, 96)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+def sc_brand(cv, t, D, sc):
+    bg(cv, t)
+    k = ease(t / 1.0)
+    twin_mark(cv, 540, 980, 1.9 + 0.25 * k, k)
+    text(cv, 'WELCOME TO', 540, 1400, 54, MUTED, ease((t - 0.5) / 0.5), 'Bold', spacing=8)
+    text(cv, 'PARALLEL', 540, 1520, 130, WHITE, ease((t - 0.7) / 0.5), 'Black', spacing=6)
+    text(cv, 'EARTH', 540, 1640, 110, S['accent'], ease((t - 0.85) / 0.5), 'Black', spacing=24)
+    headline(cv, sc.get('head'), t)
+    fade_in(cv, t)
+
+
+def sc_cta(cv, t, D, sc):
+    skia = S['skia']
+    bg(cv, t)
+    twin_mark(cv, 540, 700, 1.0, ease(t / 0.6))
+    head = sc.get('head') or ['WOULD YOU', 'SURVIVE IN THIS', '*TIMELINE?*']
+    headline(cv, head, t - 0.2, 1020, 100)
+    pulse = 1 + 0.04 * math.sin(t * 6)
+    k = ease((t - 0.8) / 0.4)
+    btn = str(sc.get('button', 'FOLLOW FOR MORE')).upper()
+    bs = fit_size([btn], 480, 54)
+    cv.save(); cv.translate(540, 1470); cv.scale(pulse, pulse)
+    cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(-280, -70, 280, 70), 70, 70), paint(S['accent'], k))
+    cv.restore()
+    text(cv, btn, 540, 1470 + bs * 0.36, bs, BG, k, 'Black', scale=pulse)
+    fade_in(cv, t)
+
+
+SCENES = {'title': sc_title, 'globe': sc_globe, 'counter': sc_counter, 'bars': sc_bars, 'words': sc_words,
+          'compare': sc_compare, 'distance': sc_distance, 'wave': sc_wave, 'timeline': sc_timeline,
+          'fact': sc_fact, 'brand': sc_brand, 'cta': sc_cta}
+
+
+# ------------------------------------------------------------ render
+def setup_state(cfg):
+    import skia
+    S['skia'] = skia
+    S['tf'] = {w: skia.Typeface.MakeFromFile(os.path.join(FONT_DIR, f'InterDisplay-{w}.otf')) for w in ['Black', 'Bold', 'SemiBold']}
+    S['accent'] = ACCENTS.get(str(cfg.get('accent', 'orange')).lower(), ACCENTS['orange'])
+    S['style'] = str(cfg.get('style', 'space')).lower()
+    rnd = random.Random(int(hashlib.md5(str(cfg.get('title', '')).encode()).hexdigest()[:6], 16))
+    S['stars'] = [(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(1.2, 3.4), rnd.uniform(0, 6.28), rnd.uniform(0.3, 1.5)) for _ in range(140)]
+
+
+def render_scene(args):
+    cfg, i, D, path = args
+    setup_state(cfg)
+    skia = S['skia']
+    sc = cfg['scenes'][i]
+    fn = SCENES.get(str(sc.get('type', 'fact')).lower(), sc_fact)
+    surf = skia.Surface(W, H)
+    n = int(round(D * FPS))
+    tmp = path[:-4] + '.part.mp4'
+    cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-',
+           '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', '-r', str(FPS), tmp]
+    pr = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    for f in range(n):
+        with surf as cv:
+            fn(cv, f / FPS, D, sc)
+        pr.stdin.write(surf.makeImageSnapshot().toarray(colorType=skia.kRGBA_8888_ColorType).tobytes())
+    pr.stdin.close()
+    ok = pr.wait() == 0
+    if ok:
+        os.replace(tmp, path)
+    return ok
+
+
+def still(cfg, i, D, t, path):
+    setup_state(cfg)
+    skia = S['skia']
+    sc = cfg['scenes'][i]
+    fn = SCENES.get(str(sc.get('type', 'fact')).lower(), sc_fact)
+    surf = skia.Surface(W, H)
+    with surf as cv:
+        fn(cv, t, D, sc)
+    surf.makeImageSnapshot().save(path, skia.kPNG)
+
+
+def slug(s):
+    return re.sub(r'[^a-z0-9]+', '_', str(s).lower()).strip('_')[:50] or 'video'
+
+
+def build(cfg, out_dir=None, workers=2, log=print):
+    import soundfile as sf
+    from kokoro_onnx import Kokoro
+    from multiprocessing import Pool
+    out_dir = out_dir or OUT_DIR
+    name = slug(cfg.get('title', 'parallel_earth'))
+    work = os.path.join(out_dir, 'pe_work_' + name)
+    os.makedirs(work, exist_ok=True)
+    scenes = [s for s in cfg.get('scenes', []) if isinstance(s, dict)]
+    cfg['scenes'] = scenes
+    log(f'Scenes: {len(scenes)}  ->  making voice-over...')
+    k = Kokoro(os.path.join(MODEL_DIR, 'kokoro-v1.0.onnx'), os.path.join(MODEL_DIR, 'voices-v1.0.bin'))
+    voice = str(cfg.get('voice', 'am_michael'))
+    lang = 'en-gb' if voice.startswith('b') else 'en-us'
+    speed = float(cfg.get('speed', 1.0) or 1.0)
+    segs, durs = [], []
+    for sc in scenes:
+        say = str(sc.get('say', '') or '').strip()
+        a = np.zeros(int(SR * 1.2), dtype=np.float32)
+        if say:
+            a, _ = k.create(say, voice=voice, speed=speed, lang=lang)
+        a = np.concatenate([np.zeros(int(SR * 0.15)), a, np.zeros(int(SR * 0.4))]).astype(np.float32)
+        segs.append(a); durs.append(len(a) / SR)
+    frames, cum = [], 0.0
+    for d in durs:
+        s0 = round(cum * FPS); cum += d; frames.append((round(cum * FPS) - s0) / FPS)
+    total = sum(frames)
+    vo = np.concatenate(segs)
+    vo = np.pad(vo, (0, max(0, int(total * SR) - len(vo))))[:int(total * SR)]
+    # ambient pad, root note varies per title
+    root = [49.0, 55.0, 58.3, 61.7, 65.4][int(hashlib.md5(name.encode()).hexdigest()[:2], 16) % 5]
+    tt = np.arange(len(vo)) / SR
+    pad = sum(w * np.sin(2 * np.pi * root * m * tt + np.sin(2 * np.pi * 0.07 * tt) * 2) for m, w in [(1, 1.0), (1.5, 0.6), (2, 0.5), (3, 0.25)])
+    pad *= 0.6 + 0.4 * np.sin(2 * np.pi * 0.05 * tt)
+    fade = np.minimum(1, np.minimum(tt / 2.0, (total - tt) / 2.5))
+    pad = pad / np.abs(pad).max() * 0.06 * fade
+    mix = vo / max(1e-6, np.abs(vo).max()) * 0.92 + pad
+    sf.write(os.path.join(work, 'audio.wav'), mix.astype(np.float32), SR)
+    log(f'Voice-over: {total:.1f} s  ->  rendering {len(scenes)} scenes...')
+    jobs = [(cfg, i, frames[i], os.path.join(work, f'scene_{i+1:02d}.mp4')) for i in range(len(scenes))]
+    with Pool(workers) as pool:
+        res = pool.map(render_scene, jobs)
+    if not all(res):
+        raise RuntimeError('scene render failed')
+    lst = os.path.join(work, 'list.txt')
+    open(lst, 'w').write(''.join(f"file 'scene_{i+1:02d}.mp4'\n" for i in range(len(scenes))))
+    out = os.path.join(out_dir, f'{name}.mp4')
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-i', os.path.join(work, 'audio.wav'),
+                    '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11', '-ar', '48000',
+                    '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out], check=True)
+    log(f'Done: {out}')
+    return out
+
+
+if __name__ == '__main__':
+    cfg = json.load(open(sys.argv[1]))
+    if len(sys.argv) > 2 and sys.argv[2] == 'stills':
+        os.makedirs(os.path.join(OUT_DIR, 'stills'), exist_ok=True)
+        for i in range(len(cfg['scenes'])):
+            still(cfg, i, 6.0, 4.0, os.path.join(OUT_DIR, 'stills', f's{i+1:02d}.png'))
+    else:
+        build(cfg)
