@@ -1,0 +1,67 @@
+name: Parallel Earth Daily
+
+on:
+  schedule:
+    - cron: '0 21 * * *'   # 04:00 WIB setiap hari
+  workflow_dispatch:
+    inputs:
+      videos:
+        description: 'Jumlah video'
+        default: '3'
+
+permissions:
+  contents: write
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache models and fonts
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: kokoro-v1.0-inter-4.1
+
+      - name: Install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg libgl1 libegl1 libfontconfig1 > /dev/null
+          pip install -q kokoro-onnx soundfile skia-python requests numpy
+          mkdir -p models fonts
+          [ -f models/kokoro-v1.0.onnx ] || wget -q -O models/kokoro-v1.0.onnx https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
+          [ -f models/voices-v1.0.bin ] || wget -q -O models/voices-v1.0.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
+          [ -f models/inter.zip ] || wget -q -O models/inter.zip https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
+          unzip -q -o -j models/inter.zip extras/otf/InterDisplay-Black.otf extras/otf/InterDisplay-Bold.otf extras/otf/InterDisplay-SemiBold.otf -d fonts
+
+      - name: Make videos
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          VIDEOS: ${{ github.event.inputs.videos || vars.VIDEOS || '3' }}
+          PE_MODEL_DIR: ${{ github.workspace }}/models
+          PE_FONT_DIR: ${{ github.workspace }}/fonts
+        run: python daily.py
+
+      - name: Remember topics
+        if: always()
+        run: |
+          git config user.name "parallel-earth-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add topics_done.txt telegram_chat_id.txt 2>/dev/null || true
+          git commit -m "update topics" || echo "nothing to commit"
+          git push || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: videos
+          path: out/*.mp4
+          retention-days: 7
