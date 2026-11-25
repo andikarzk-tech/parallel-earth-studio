@@ -7,7 +7,7 @@ on:
     inputs:
       videos:
         description: 'Jumlah video Shorts'
-        default: '3'
+        default: '1'
       mode:
         description: 'auto = harian (+ video panjang tiap Minggu), daily, compile, both'
         default: 'auto'
@@ -50,7 +50,10 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          VIDEOS: ${{ github.event.inputs.videos || vars.VIDEOS || '3' }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          VIDEOS: ${{ github.event.inputs.videos || vars.VIDEOS || '1' }}
           MODE: ${{ github.event.inputs.mode || 'auto' }}
           PE_MODEL_DIR: ${{ github.workspace }}/models
           PE_FONT_DIR: ${{ github.workspace }}/fonts
