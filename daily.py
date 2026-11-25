@@ -1,5 +1,7 @@
 """Parallel Earth daily run: Gemini writes N configs -> engine renders N videos -> sent to Telegram.
 Env: GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (optional), VIDEOS (default 3), MOCK=1 for a dry run.
+YouTube auto-upload (optional): YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN; YT_SLOTS (WIB publish times, default 19:00,12:00,16:00),
+YT_COMPILE_SLOT (default 20:00). Videos are uploaded private + scheduled (publishAt), so they can be deleted before they go live.
 """
 import os, json, re, time, random, traceback, glob, subprocess, datetime
 import requests
@@ -25,6 +27,12 @@ N = int(os.environ.get('VIDEOS', '3') or 3)
 KEY = os.environ.get('GEMINI_API_KEY', '').strip()
 TG = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
 MOCK = os.environ.get('MOCK') == '1'
+YT_ID = os.environ.get('YT_CLIENT_ID', '').strip()
+YT_SECRET = os.environ.get('YT_CLIENT_SECRET', '').strip()
+YT_REFRESH = os.environ.get('YT_REFRESH_TOKEN', '').strip()
+YT_ON = bool(YT_ID and YT_SECRET and YT_REFRESH) and not MOCK
+YT_SLOTS = [x.strip() for x in (os.environ.get('YT_SLOTS') or '19:00,12:00,16:00').split(',') if x.strip()]
+YT_COMPILE_SLOT = (os.environ.get('YT_COMPILE_SLOT') or '20:00').strip()
 
 PROMPT = open(os.path.join(ROOT, 'prompt.txt'), encoding='utf-8').read()
 ACCENTS = ['orange', 'red', 'green', 'purple', 'cyan', 'yellow']
@@ -156,9 +164,85 @@ def chat_id():
     return ''
 
 
-def tg_send(cid, path, cfg, idx):
+# ---------------- YouTube auto-upload ----------------
+def yt_token():
+    r = requests.post('https://oauth2.googleapis.com/token', timeout=30,
+                      data={'client_id': YT_ID, 'client_secret': YT_SECRET, 'refresh_token': YT_REFRESH, 'grant_type': 'refresh_token'})
+    if r.status_code != 200:
+        raise RuntimeError(f'YouTube token error {r.status_code}: {r.text[:200]}')
+    return r.json()['access_token']
+
+
+def publish_time(slot):
+    """Next WIB time for slot 'HH:MM' that is at least 45 min away. Returns (utc datetime, wib datetime)."""
+    h, m = (int(x) for x in slot.split(':'))
+    now_wib = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(hours=7)
+    t = now_wib.replace(hour=h, minute=m, second=0, microsecond=0)
+    while t < now_wib + datetime.timedelta(minutes=45):
+        t += datetime.timedelta(days=1)
+    return t - datetime.timedelta(hours=7), t
+
+
+def tags_from(hashtags):
+    tags = [w.lstrip('#') for w in re.split(r'[\s,]+', hashtags or '') if w.strip('#')]
+    return list(dict.fromkeys(tags + ['what if', 'science', 'Parallel Earth']))[:15]
+
+
+def yt_upload(path, title, desc, tags, slot):
+    when_utc, when_wib = publish_time(slot)
+    body = {'snippet': {'title': title[:100], 'description': desc[:4900], 'tags': tags, 'categoryId': '28',
+                        'defaultLanguage': 'en', 'defaultAudioLanguage': 'en'},
+            'status': {'privacyStatus': 'private', 'publishAt': when_utc.strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+                       'selfDeclaredMadeForKids': False, 'embeddable': True}}
+    size = os.path.getsize(path)
+    last = None
+    for attempt in range(3):
+        try:
+            tok = yt_token()
+            r = requests.post('https://www.googleapis.com/upload/youtube/v3/videos', timeout=60,
+                              params={'uploadType': 'resumable', 'part': 'snippet,status', 'notifySubscribers': 'true'},
+                              headers={'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json; charset=UTF-8',
+                                       'X-Upload-Content-Type': 'video/mp4', 'X-Upload-Content-Length': str(size)},
+                              data=json.dumps(body))
+            if r.status_code != 200:
+                raise RuntimeError(f'init {r.status_code}: {r.text[:300]}')
+            with open(path, 'rb') as f:
+                r = requests.put(r.headers['Location'], data=f, timeout=1800,
+                                 headers={'Authorization': f'Bearer {tok}', 'Content-Type': 'video/mp4', 'Content-Length': str(size)})
+            if r.status_code not in (200, 201):
+                raise RuntimeError(f'upload {r.status_code}: {r.text[:300]}')
+            vid = r.json()['id']
+            log('youtube uploaded', vid, 'publish', f'{when_wib:%Y-%m-%d %H:%M} WIB')
+            return vid, when_wib
+        except Exception as e:
+            last = e
+            log('youtube upload attempt', attempt + 1, 'failed:', e)
+            if 'invalid_grant' in str(e) or 'quotaExceeded' in str(e) or 'uploadLimitExceeded' in str(e):
+                break
+            time.sleep(20 * (attempt + 1))
+    raise RuntimeError(str(last)[:400])
+
+
+def yt_short(path, cfg, idx):
+    title = str(cfg.get('yt_title') or cfg.get('title') or 'What If?').strip()
+    if '#shorts' not in title.lower() and len(title) < 90:
+        title += ' #shorts'
+    desc = (f"{cfg.get('description', '')}\n\nWhich world would you choose? Tell Terra and Para in the comments!\n"
+            f"Subscribe for a new parallel world every day.\n\nStock footage: Pixabay\n\n{cfg.get('hashtags', '')}")
+    slot = YT_SLOTS[(idx - 1) % len(YT_SLOTS)]
+    return yt_upload(path, title, desc, tags_from(cfg.get('hashtags', '')), slot)
+
+
+def tg_send(cid, path, cfg, idx, yt=None):
     cap = (f"🎬 Video {idx}/{N}\n\n<b>{cfg.get('yt_title') or cfg.get('title')}</b>\n\n{cfg.get('description', '')}\n\n{cfg.get('hashtags', '')}\n\n"
-           "Stock footage: Pixabay\n\n✅ Cek fakta dulu sebelum upload. Centang label konten AI.")
+           "Stock footage: Pixabay\n\n")
+    if yt and yt[0]:
+        cap += (f"📅 SUDAH DIUNGGAH ke YouTube, tayang otomatis {yt[1]:%d %b %H:%M} WIB.\n"
+                f"Cek fakta di naskah. Kalau ada yang salah, hapus sebelum jam tayang:\nhttps://studio.youtube.com/video/{yt[0]}/edit")
+    elif yt:
+        cap += f"⚠️ Upload YouTube gagal: {yt[1]}\nUpload manual dari video ini."
+    else:
+        cap += "✅ Cek fakta dulu sebelum upload."
     if os.path.getsize(path) > 48 * 1024 * 1024:  # Telegram bots accept up to 50 MB
         small = path[:-4] + '_tg.mp4'
         subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', path, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '27',
@@ -208,8 +292,15 @@ def daily_run(cid):
                 json.dump(cfg, open(os.path.join(CONF_DIR, f'{WIB:%Y-%m-%d}_{i:02d}.json'), 'w'), ensure_ascii=False, indent=1)
             path = engine.build(cfg, OUT, workers=2, log=log)
             made.append(cfg)
+            yt = None
+            if YT_ON:
+                try:
+                    yt = yt_short(path, cfg, i)
+                except Exception as e:
+                    traceback.print_exc()
+                    yt = ('', str(e)[:300])
             if TG and cid:
-                tg_send(cid, path, cfg, i)
+                tg_send(cid, path, cfg, i, yt)
             if not MOCK:
                 time.sleep(8)
         except Exception as e:
@@ -271,6 +362,13 @@ def compile_run(cid):
     desc = 'What would happen if the rules of our planet changed? ' + '\n\n' + '\n'.join(chapters) + '\n\n#whatif #science #space #parallelearth'
     open(os.path.join(OUT, 'compilation_description.txt'), 'w', encoding='utf-8').write(title + '\n\n' + desc)
     log(f'Compilation done: {wide} ({t/60:.1f} min)')
+    yt = None
+    if YT_ON:
+        try:
+            yt = yt_upload(wide, title, desc, ['what if', 'science', 'space', 'Parallel Earth', 'compilation'], YT_COMPILE_SLOT)
+        except Exception as e:
+            traceback.print_exc()
+            yt = ('', str(e)[:300])
     if TG and cid:
         send = wide
         if os.path.getsize(wide) > 48 * 1024 * 1024:
@@ -278,7 +376,13 @@ def compile_run(cid):
             kbps = max(300, int(44 * 8 * 1024 / t) - 128)
             subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wide, '-vf', 'scale=1280:720', '-c:v', 'libx264', '-preset', 'veryfast',
                             '-b:v', f'{kbps}k', '-maxrate', f'{kbps}k', '-bufsize', f'{2*kbps}k', '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', send], check=True)
-        cap = f'📺 <b>Video panjang mingguan</b> ({t/60:.1f} menit, 16:9)\n\n<b>{title}</b>\n\nUpload sebagai video biasa (bukan Shorts). Versi kualitas penuh ada di GitHub → Actions → run terbaru → artifact.'
+        cap = f'📺 <b>Video panjang mingguan</b> ({t/60:.1f} menit, 16:9)\n\n<b>{title}</b>\n\n'
+        if yt and yt[0]:
+            cap += f'📅 SUDAH DIUNGGAH, tayang {yt[1]:%d %b %H:%M} WIB.\nhttps://studio.youtube.com/video/{yt[0]}/edit'
+        else:
+            cap += 'Upload sebagai video biasa (bukan Shorts). Versi kualitas penuh ada di GitHub → Actions → run terbaru → artifact.'
+            if yt:
+                cap += f'\n⚠️ Upload otomatis gagal: {yt[1]}'
         with open(send, 'rb') as f:
             r = requests.post(f'https://api.telegram.org/bot{TG}/sendVideo', timeout=600,
                               data={'chat_id': cid, 'caption': cap[:1024], 'parse_mode': 'HTML', 'supports_streaming': 'true'},
@@ -294,7 +398,7 @@ def compile_run(cid):
 
 def main():
     cid = chat_id() if TG else ''
-    log('telegram chat:', 'found' if cid else 'not set', '| mode:', MODE, '| WIB', f'{WIB:%A %Y-%m-%d}')
+    log('telegram chat:', 'found' if cid else 'not set', '| mode:', MODE, '| WIB', f'{WIB:%A %Y-%m-%d}', '| youtube:', 'on' if YT_ON else 'off')
     made = 0
     if MODE in ('auto', 'daily', 'both'):
         made += daily_run(cid)
