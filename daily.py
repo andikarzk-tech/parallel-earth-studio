@@ -1,6 +1,6 @@
 """Parallel Earth daily run: Gemini writes N configs -> engine renders N videos -> sent to Telegram.
 Env: GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (optional), VIDEOS (default 3), MOCK=1 for a dry run.
-YouTube auto-upload (optional): YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN; YT_SLOTS (WIB publish times, default 19:00,12:00,16:00),
+YouTube auto-upload (optional): YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN; YT_SLOTS (WIB publish times, default 19:00,07:00,23:00,15:00,11:00),
 YT_COMPILE_SLOT (default 20:00). Videos are uploaded private + scheduled (publishAt), so they can be deleted before they go live.
 """
 import os, json, re, time, random, traceback, glob, subprocess, datetime
@@ -31,13 +31,163 @@ YT_ID = os.environ.get('YT_CLIENT_ID', '').strip()
 YT_SECRET = os.environ.get('YT_CLIENT_SECRET', '').strip()
 YT_REFRESH = os.environ.get('YT_REFRESH_TOKEN', '').strip()
 YT_ON = bool(YT_ID and YT_SECRET and YT_REFRESH) and not MOCK
-YT_SLOTS = [x.strip() for x in (os.environ.get('YT_SLOTS') or '19:00,12:00,16:00').split(',') if x.strip()]
+YT_SLOTS = [x.strip() for x in (os.environ.get('YT_SLOTS') or '19:00,07:00,23:00,15:00,11:00').split(',') if x.strip()]
 YT_COMPILE_SLOT = (os.environ.get('YT_COMPILE_SLOT') or '20:00').strip()
 
 PROMPT = open(os.path.join(ROOT, 'prompt.txt'), encoding='utf-8').read()
 ACCENTS = ['orange', 'red', 'green', 'purple', 'cyan', 'yellow']
 STYLES = ['space', 'grid', 'dust']
 VOICES = ['am_michael', 'am_fenrir', 'bm_george', 'bm_fable', 'af_heart', 'am_puck']
+
+
+# ---------------- Self-improvement loop (also in learn.py) ----------------
+import math
+import xml.etree.ElementTree as ET
+CHANNEL_ID = os.environ.get('YT_CHANNEL_ID', 'UCsBqaoVeFY0owFLLZkiITMA')
+
+GENES = {
+    'accent': ['orange', 'red', 'green', 'purple', 'cyan', 'yellow'],
+    'style': ['space', 'grid', 'dust'],
+    'speed': ['1.05', '1.1', '1.15'],
+    'hook': ['shock', 'question', 'countdown', 'imagine', 'myth'],
+    'category': ['space', 'planet earth', 'human body', 'animals', 'history', 'technology', 'everyday life', 'oceans'],
+}
+HOOKS = {
+    'shock': 'Terra\'s FIRST line states one shocking, concrete consequence with a number (e.g. "In 3 seconds every ocean would leave its bed!").',
+    'question': 'Terra\'s FIRST line is a direct question to the viewer that creates instant curiosity (e.g. "Would you survive one day here?").',
+    'countdown': 'Tell the story as a timeline: Terra\'s FIRST line starts a countdown ("Second 1...", "Day 1...") and later scenes jump forward in time.',
+    'imagine': 'Terra\'s FIRST line puts the viewer inside it: "Imagine you wake up and ...".',
+    'myth': 'Terra\'s FIRST line breaks a common belief: "Everyone thinks ... They are wrong."',
+}
+EXPLORE = 0.3     # share of choices spent on trying new things
+MIN_AGE_H = 12    # a video needs this many hours online before it is judged
+NS = {'a': 'http://www.w3.org/2005/Atom', 'yt': 'http://www.youtube.com/xml/schemas/2015', 'media': 'http://search.yahoo.com/mrss/'}
+
+
+def _now():
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+
+def fetch_rss():
+    """{video_id: (views, published_utc)} for the newest ~15 public videos."""
+    out = {}
+    try:
+        r = requests.get('https://www.youtube.com/feeds/videos.xml', params={'channel_id': CHANNEL_ID}, timeout=30)
+        if r.status_code != 200:
+            return out
+        root = ET.fromstring(r.content)
+        for e in root.findall('a:entry', NS):
+            vid = e.findtext('yt:videoId', default='', namespaces=NS)
+            pub = e.findtext('a:published', default='', namespaces=NS)
+            st = e.find('media:group/media:community/media:statistics', NS)
+            views = int(st.get('views', '0')) if st is not None else 0
+            try:
+                p = datetime.datetime.fromisoformat(pub.replace('Z', '+00:00')).astimezone(datetime.timezone.utc).replace(tzinfo=None)
+            except Exception:
+                p = None
+            if vid:
+                out[vid] = (views, p)
+    except Exception as e:
+        print('rss failed:', e)
+    return out
+
+
+def update_stats(conf_dir):
+    """Write the latest view counts into every config that was uploaded. Returns list of (path, cfg)."""
+    rss = fetch_rss()
+    items = []
+    for p in sorted(glob.glob(os.path.join(conf_dir, '*.json'))):
+        try:
+            c = json.load(open(p, encoding='utf-8'))
+        except Exception:
+            continue
+        vid = c.get('yt_id')
+        if vid and vid in rss:
+            views, pub = rss[vid]
+            c['stats'] = {'views': views, 'published': pub.isoformat() if pub else c.get('stats', {}).get('published'),
+                          'checked': _now().isoformat(timespec='minutes')}
+            json.dump(c, open(p, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        items.append((p, c))
+    return items
+
+
+def _score(c):
+    st = c.get('stats') or {}
+    if not st.get('published') or 'views' not in st:
+        return None
+    try:
+        pub = datetime.datetime.fromisoformat(st['published'])
+        chk = datetime.datetime.fromisoformat(st.get('checked') or _now().isoformat())
+    except Exception:
+        return None
+    age = (chk - pub).total_seconds() / 3600
+    if age < MIN_AGE_H:
+        return None
+    return st['views'] / math.log2(2 + min(age, 24 * 14))
+
+
+def _first_line(c):
+    for s in c.get('scenes', []):
+        for l in s.get('lines') or []:
+            if isinstance(l, dict) and l.get('text'):
+                return l['text']
+    return ''
+
+
+def learn_from_data(conf_dir):
+    """Returns (state, brief_for_gemini, report_for_telegram)."""
+    items = update_stats(conf_dir)
+    scored = [(s, c) for _, c in items if (s := _score(c)) is not None]
+    state = {g: {} for g in GENES}
+    if len(scored) < 3:
+        brief = ('CHANNEL DATA: not enough viewer data yet. Experiment boldly: unusual angles, strong numbers, a twist at the end.')
+        report = f'📈 Belajar: baru {len(scored)} video punya data penonton (perlu ≥3, umur ≥{MIN_AGE_H} jam). Mesin masih mode eksplorasi.'
+        return state, brief, report
+    med = sorted(s for s, _ in scored)[len(scored) // 2] or 1.0
+    for s, c in scored:
+        rel = s / med
+        for g, v in (c.get('genes') or {}).items():
+            if g in state and v is not None:
+                n, tot = state[g].get(v, (0, 0.0))
+                state[g][v] = (n + 1, tot + rel)
+    ranked = sorted(scored, key=lambda x: x[0], reverse=True)
+    top, bottom = ranked[:3], ranked[-3:][::-1]
+
+    def fmt(lst):
+        return '\n'.join(f'- "{c.get("title")}" ({s / med:.1f}x average) opening line: "{_first_line(c)[:120]}" '
+                         f'[hook={c.get("genes", {}).get("hook")}, category={c.get("genes", {}).get("category")}]' for s, c in lst)
+    winners = []
+    for g in ('hook', 'category', 'style', 'accent', 'speed'):
+        vals = {v: tot / n for v, (n, tot) in state[g].items() if n >= 2}
+        if vals:
+            best = max(vals, key=vals.get)
+            winners.append(f'{g}={best} ({vals[best]:.1f}x)')
+    brief = ('CHANNEL DATA (real viewers, use it):\nOur BEST videos so far:\n' + fmt(top) +
+             '\nOur WEAKEST videos:\n' + fmt(bottom) +
+             '\nCopy what made the best ones work (their opening energy, kind of topic, tension). Avoid what the weakest did.'
+             + ('\nWinning patterns: ' + ', '.join(winners) if winners else ''))
+    report = (f'📈 Laporan belajar ({len(scored)} video dinilai)\n🏆 Terbaik: {top[0][1].get("title")} ({top[0][0] / med:.1f}x rata-rata)\n'
+              f'🐢 Terlemah: {bottom[0][1].get("title")} ({bottom[0][0] / med:.1f}x)\n'
+              + ('🧬 Gen unggul: ' + ', '.join(winners) if winners else '🧬 Gen unggul: belum cukup data per gen'))
+    return state, brief, report
+
+
+def pick_genes(state, rnd=random):
+    """Choose one value per gene: exploit winners, keep exploring."""
+    out = {}
+    for g, values in GENES.items():
+        seen = state.get(g, {})
+        untested = [v for v in values if v not in seen]
+        if rnd.random() < EXPLORE or not seen:
+            out[g] = rnd.choice(untested or values)
+            continue
+        weights = []
+        for v in values:
+            n, tot = seen.get(v, (0, 0.0))
+            mean = (tot + 1.0) / (n + 1)          # prior of 1.0 = channel average
+            weights.append(max(0.05, mean) ** 2)
+        out[g] = rnd.choices(values, weights=weights)[0]
+    return out
 
 
 def log(*a):
@@ -51,17 +201,19 @@ def done_topics():
 
 
 def get_next():
+    """Queued topic teased by the previous video: returns (topic, category)."""
     if os.path.exists(DONE_FILE):
         for l in open(DONE_FILE, encoding='utf-8'):
             if l.startswith('#next '):
-                return l[6:].strip()
-    return ''
+                t, _, cat = l[6:].strip().partition('|')
+                return t.strip(), (cat.strip() or None)
+    return '', None
 
 
-def set_next(topic):
+def set_next(topic, category=None):
     lines = [l for l in open(DONE_FILE, encoding='utf-8')] if os.path.exists(DONE_FILE) else []
     lines = [l for l in lines if not l.startswith('#next ')]
-    lines.append(f'#next {topic}\n')
+    lines.append(f'#next {topic}' + (f' | {category}' if category else '') + '\n')
     open(DONE_FILE, 'w', encoding='utf-8').write(''.join(l if l.endswith('\n') else l + '\n' for l in lines))
 
 
@@ -82,15 +234,17 @@ def pick_model():
     return cands[:7]
 
 
-def ask_gemini(models, avoid, used_styles, topic=None, next_topic=None):
+def ask_gemini(models, avoid, genes, brief, topic=None, next_cat='space'):
     topic_txt = (f'TOPIC (use exactly this): What if {topic}?' if topic else
-                 'TOPIC: invent ONE fresh, surprising "What if" topic yourself (science, space, nature, history, human body, technology).')
-    user = (PROMPT + f'\n\n{topic_txt}\nNEXT TOPIC (tease it in the brand scene): What if {next_topic}?\n'
+                 f'TOPIC: invent ONE fresh, surprising "What if" topic yourself in the category "{genes["category"]}".')
+    user = (PROMPT + f'\n\n{topic_txt}\nNEXT TOPIC (you choose it): a fresh, surprising "What if" in the category "{next_cat}". '
+            'Tease it in the brand scene and put it in "next_topic".\n'
             'Both must be different from all of these already-made topics:\n- ' + '\n- '.join(avoid[-150:] or ['(none yet)']) +
-            f'\n\nUse accent "{used_styles[0]}", style "{used_styles[1]}", voice "{used_styles[2]}".'
+            f'\n\nHOOK STYLE: {HOOKS[genes["hook"]]}'
+            f'\nUse accent "{genes["accent"]}", style "{genes["style"]}".'
+            f'\n\n{brief}'
             '\nAlso add these top-level keys: "yt_title" (max 70 chars, catchy, ends with #shorts), '
             '"description" (2 short sentences), "hashtags" (5-8 hashtags in one string).')
-    last = None
     for rnd in range(3):
         if rnd:
             log(f'All Gemini models busy, waiting {90 * rnd} s before round {rnd + 1}')
@@ -99,6 +253,29 @@ def ask_gemini(models, avoid, used_styles, topic=None, next_topic=None):
         if cfg:
             return cfg
     raise RuntimeError('Gemini is overloaded right now (503). Try again later.')
+
+
+EDITOR = ('''You are a ruthless YouTube Shorts retention editor and a careful science fact-checker.
+Improve this Parallel Earth script (JSON below) so more viewers watch to the end:
+- the first line must hook in under 2 seconds; every line must make the viewer want the next one
+- cut filler words, use vivid concrete numbers and images, keep Terra and Para's personalities and the running gags
+- FIX any fact that is wrong or exaggerated (real-science parts must be accurate)
+- keep the exact same JSON schema, keys, scene types, scene order, visual fields and "next_topic"; keep 8-14 scenes and 150-250 spoken words in total
+Return ONLY the full improved JSON.''')
+
+
+def polish(models, cfg):
+    """Second Gemini pass: retention + fact check. Falls back to the original on any problem."""
+    keep = {k: cfg.get(k) for k in ('next_topic', 'accent', 'style')}
+    try:
+        better = try_models(models[:3], EDITOR + '\n\n' + json.dumps(cfg, ensure_ascii=False))
+        if better and len(better.get('scenes', [])) == len(cfg['scenes']):
+            better.update({k: v for k, v in keep.items() if v})
+            log('polish: improved script accepted')
+            return better
+    except Exception as e:
+        log('polish failed:', str(e)[:200])
+    return cfg
 
 
 def try_models(models, user):
@@ -271,31 +448,42 @@ def tg_text(cid, text):
 def daily_run(cid):
     avoid = done_topics()
     models = [] if MOCK else pick_model()
+    state, brief, report = ({g: {} for g in GENES}, '', '') if MOCK else learn_from_data(CONF_DIR)
+    log(report)
+    tg_text(cid, report)
+    plan = [pick_genes(state) for _ in range(N + 1)]   # genes for today's videos (+1 = tomorrow's first topic category)
     made = []
     for i in range(1, N + 1):
         try:
-            style = (ACCENTS[(len(avoid) + i) % len(ACCENTS)], STYLES[(len(avoid) + i) % len(STYLES)], random.choice(VOICES))
-            seen = [x.lower() for x in avoid + [m['title'] for m in made]]
-            queued = get_next()
-            pool = [x for x in IDEA_POOL if not any(x.split()[1] in s_ and x.split()[-1] in s_ for s_ in seen)] or IDEA_POOL
-            nxt = random.choice([x for x in pool if x != queued] or pool)
-            cfg = mock_cfg(i) if MOCK else ask_gemini(models, avoid + [m['title'] for m in made], style, queued or None, nxt)
+            genes = plan[i - 1]
+            queued, queued_cat = get_next()
+            if queued and queued_cat:
+                genes['category'] = queued_cat       # topic was teased yesterday / by the previous video
+            cfg = mock_cfg(i) if MOCK else ask_gemini(models, avoid + [m['title'] for m in made], genes, brief,
+                                                      queued or None, plan[i]['category'])
             if not MOCK:
-                nt = str(cfg.get('next_topic') or nxt).strip()
-                nt = re.sub(r'(?i)^what if\s+', '', nt).rstrip('?').strip() or nxt
-                set_next(nt)
-            log(f'[{i}/{N}] {cfg["title"]}')
+                cfg = polish(models, cfg)
+                nt = str(cfg.get('next_topic') or '').strip()
+                nt = re.sub(r'(?i)^what if\s+', '', nt).rstrip('?').strip()
+                if nt:
+                    set_next(nt, plan[i]['category'])
+            log(f'[{i}/{N}] {cfg["title"]} | genes {genes}')
+            cfg['genes'] = genes
+            cfg['accent'], cfg['style'] = genes['accent'], genes['style']
             cfg['min_seconds'] = MIN_SECONDS
-            cfg['speed'] = max(1.05, float(cfg.get('speed', 1.0) or 1.0))
+            cfg['speed'] = float(genes['speed'])
             os.makedirs(CONF_DIR, exist_ok=True)
+            conf_path = os.path.join(CONF_DIR, f'{WIB:%Y-%m-%d}_{i:02d}.json')
             if not MOCK:
-                json.dump(cfg, open(os.path.join(CONF_DIR, f'{WIB:%Y-%m-%d}_{i:02d}.json'), 'w'), ensure_ascii=False, indent=1)
+                json.dump(cfg, open(conf_path, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
             path = engine.build(cfg, OUT, workers=2, log=log)
             made.append(cfg)
             yt = None
             if YT_ON:
                 try:
                     yt = yt_short(path, cfg, i)
+                    cfg['yt_id'], cfg['publish_at'] = yt[0], yt[1].isoformat(timespec='minutes')
+                    json.dump(cfg, open(conf_path, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
                 except Exception as e:
                     traceback.print_exc()
                     yt = ('', str(e)[:300])
@@ -310,6 +498,8 @@ def daily_run(cid):
         with open(DONE_FILE, 'a', encoding='utf-8') as f:
             for c in made:
                 f.write(c['title'].strip() + '\n')
+        with open(os.path.join(CONF_DIR, 'learning_log.txt'), 'a', encoding='utf-8') as f:
+            f.write(f'\n=== {WIB:%Y-%m-%d} ===\n{report}\nToday genes: ' + json.dumps([c.get('genes') for c in made]) + '\n')
     if TG and cid:
         tg_text(cid, f'✅ Selesai: {len(made)}/{N} video hari ini.')
     return len(made)
