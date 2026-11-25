@@ -1,206 +1,231 @@
 {
- "title": "What If Earth Stopped Spinning?",
- "yt_title": "What If Earth Stopped Spinning? 🌍 #shorts",
- "description": "Imagine what would happen if Earth suddenly halted its rotation. Para explains how days, oceans, and atmospheres change on a non-spinning planet!",
- "hashtags": "#WhatIf #ParallelEarth #SpaceScience #EarthRotation #ScienceFacts",
- "next_topic": "What if it rained every day everywhere?",
+ "title": "What If It Rained Every Day Everywhere?",
+ "yt_title": "What If It Rained EVERY SINGLE DAY Everywhere? 🌧️ #shorts",
+ "description": "Imagine a world where the rain never stops falling on any continent. Explore the crazy consequences of non-stop rain on Parallel Earth!",
+ "hashtags": "#whatif #parallelearth #sciencefacts #rain #earth #animation",
  "speed": 1.05,
- "accent": "orange",
- "style": "space",
- "voice": "bm_fable",
+ "accent": "red",
+ "style": "grid",
+ "voice": "am_puck",
+ "next_topic": "What if there was no night?",
  "scenes": [
   {
    "type": "title",
-   "bg": "earth planet spinning space",
-   "head": [
-    "WHAT IF EARTH",
-    "*STOPPED SPINNING?*"
-   ],
+   "bg": "heavy rain falling on city street",
    "visual": "earth",
-   "effect": "stop",
+   "effect": "pulse",
+   "head": [
+    "WHAT IF IT",
+    "*RAINED*",
+    "EVERY DAY?"
+   ],
    "lines": [
     {
      "who": "terra",
      "mood": "shocked",
-     "text": "What if Earth suddenly stopped spinning right now?"
+     "text": "Para! What if it rained every day everywhere?"
     },
     {
      "who": "para",
      "mood": "happy",
-     "text": "I live in that world, Blue! Let me show you."
+     "text": "I live in that world, Blue! Grab your umbrella and let me show you!"
     }
    ]
   },
   {
    "type": "split",
    "transition": "portal",
-   "head": [
-    "ONE DAY",
-    "*ONE YEAR*"
-   ],
    "left_name": "Our Earth",
-   "left_value": "24 Hours",
+   "left_value": "Sunny & dry days",
    "right_name": "Para's Earth",
-   "right_value": "365 Days",
-   "bg_left": "sunrise city timelapse",
-   "bg_right": "frozen dark arctic tundra",
-   "lines": [
-    {
-     "who": "terra",
-     "mood": "thinking",
-     "text": "If your planet stopped spinning, how long is one day?"
-    },
-    {
-     "who": "para",
-     "mood": "excited",
-     "text": "One day lasts a whole year! Six months sun, six months dark."
-    }
-   ]
-  },
-  {
-   "type": "counter",
-   "bg": "",
+   "right_value": "Non-stop rain",
+   "bg_left": "sunny park aerial view",
+   "bg_right": "rain pouring over jungle",
    "head": [
-    "OCEANS",
-    "*MIGRATE*"
+    "ALWAYS RAINING",
+    "*OR SUNNY?*"
    ],
-   "from": 0,
-   "to": 1670,
-   "decimals": 0,
-   "prefix": "",
-   "suffix": " km/h",
-   "label": "water shift speed",
    "lines": [
     {
      "who": "terra",
      "mood": "scared",
-     "text": "Six months of night? My bedtime routine is ruined!"
+     "text": "No sunshine at all? My laundry will never dry!"
     },
     {
      "who": "para",
-     "mood": "happy",
-     "text": "Oceans instantly flood toward both poles at high speed!"
-    }
-   ]
-  },
-  {
-   "type": "words",
-   "bg": "dry canyon desert land",
-   "head": [
-    "EQUATOR",
-    "*DRAINS DRY*"
-   ],
-   "words": [
-    "OCEANS DRAIN",
-    "MEGA CONTINENT",
-    "POLAR SEAS"
-   ],
-   "lines": [
-    {
-     "who": "terra",
-     "mood": "shocked",
-     "text": "Does all water leave the equator completely?"
-    },
-    {
-     "who": "para",
-     "mood": "thinking",
-     "text": "Yes! One giant ring continent forms, splitting two polar oceans."
+     "mood": "excited",
+     "text": "Welcome to my world! Umbrellas and puddles everywhere."
     }
    ]
   },
   {
    "type": "globe",
    "bg": "",
-   "head": [
-    "SUPERSTORM",
-    "*WINDS*"
-   ],
    "body": "earth",
-   "effect": "wobble",
-   "label": "ATMOSPHERE",
-   "sublabel": "extreme winds",
-   "action": "sweat",
+   "effect": "heat",
+   "label": "RIVER WATER LEVELS",
+   "sublabel": "overflowing rapidly",
+   "head": [
+    "RIVERS OVERFLOW",
+    "*GLOBAL FLOODS*"
+   ],
    "lines": [
+    {
+     "who": "para",
+     "mood": "thinking",
+     "text": "With non-stop rain, rivers overflow fast, flooding cities and saturating all soil."
+    },
     {
      "who": "terra",
      "mood": "scared",
-     "text": "What about atmosphere? Can anyone even breathe?"
+     "text": "If water rises, I will hide behind the Moon!"
+    }
+   ]
+  },
+  {
+   "type": "words",
+   "bg": "stormy rain flooded highway",
+   "words": [
+    "CROPS ROT IN SOIL",
+    "GLOBAL FOOD SHORTAGE",
+    "BUILDINGS ERODE"
+   ],
+   "head": [
+    "FARMING FAILS",
+    "*GLOBAL SHORTAGE*"
+   ],
+   "lines": [
+    {
+     "who": "para",
+     "mood": "thinking",
+     "text": "Crops rot in soggy ground without sunlight, causing massive global food shortages."
     },
+    {
+     "who": "terra",
+     "mood": "sad",
+     "text": "No crops? Does that mean no snacks or pizza?"
+    }
+   ]
+  },
+  {
+   "type": "counter",
+   "bg": "foggy wet forest trees",
+   "from": 50,
+   "to": 100,
+   "suffix": " %",
+   "label": "humidity level",
+   "head": [
+    "HUMIDITY AT",
+    "*MAXIMUM LEVEL*"
+   ],
+   "action": "sweat",
+   "lines": [
     {
      "who": "para",
      "mood": "excited",
-     "text": "Violent hurricane winds blast continuously across the sunlit border."
+     "text": "Humidity hits one hundred percent constantly. Wooden houses rot and metal rusts quickly."
+    },
+    {
+     "who": "terra",
+     "mood": "scared",
+     "text": "I am sweating just thinking about permanent humidity!"
     }
    ]
   },
   {
    "type": "wave",
-   "bg": "sun cosmic radiation atmosphere",
+   "bg": "green tree frog rain",
+   "trend": "up",
+   "label": "+500%",
+   "sublabel": "amphibian surge",
    "head": [
-    "MAGNETIC SHIELD",
-    "*COLLAPSES*"
+    "FROGS DOMINATE",
+    "*THE PLANET*"
    ],
-   "trend": "down",
-   "label": "-90%",
-   "sublabel": "magnetic shield",
    "lines": [
     {
-     "who": "terra",
-     "mood": "thinking",
-     "text": "Does your Earth protect you from space radiation?"
+     "who": "para",
+     "mood": "happy",
+     "text": "Amphibians thrive! Frogs and rainforest plants take over every continent."
     },
     {
-     "who": "para",
-     "mood": "thinking",
-     "text": "Without spin, our magnetic field collapses, letting cosmic rays in."
+     "who": "terra",
+     "mood": "shocked",
+     "text": "Are frogs the boss now? Can I get Wi-Fi in frog cities?"
     }
    ]
   },
   {
-   "type": "distance",
-   "bg": "space view moon earth",
+   "type": "bars",
+   "bg": "dark thunder clouds storm",
+   "trend": "down",
+   "label": "sunlight level",
    "head": [
-    "THE MOON",
-    "*CREEPS IN*"
+    "SUNLIGHT DROPS",
+    "*PLANET COOLS DOWN*"
    ],
-   "a": "earth",
-   "b": "moon",
-   "motion": "closer",
-   "label": "MOON ORBIT",
-   "sublabel": "moves closer",
+   "action": "shiver",
    "lines": [
     {
-     "who": "terra",
+     "who": "para",
      "mood": "thinking",
-     "text": "What happens to the Moon when spin stops?"
+     "text": "Thick clouds block ninety percent of sunlight, turning Earth chilly and gloomy."
     },
     {
-     "who": "para",
-     "mood": "happy",
-     "text": "Without Earth's spin boost, the Moon slowly creeps closer!"
+     "who": "terra",
+     "mood": "scared",
+     "text": "Cold rain every day sounds like a nightmare!"
     }
    ]
   },
   {
    "type": "fact",
-   "bg": "earth rotating space view",
-   "head": [
-    "REAL EARTH",
-    "*SLOWING DOWN*"
-   ],
+   "bg": "waterfall lush rain forest",
    "kicker": "THE TWIST",
-   "big": "Earth is slowing down",
-   "sublabel": "+2.3 ms per century",
+   "big": "Mawsynram gets 11,870 mm of rain yearly!",
+   "sublabel": "The wettest place on planet Earth",
+   "head": [
+    "THE WETTEST",
+    "*PLACE ON EARTH*"
+   ],
    "lines": [
-    {
-     "who": "terra",
-     "mood": "happy",
-     "text": "Is our Earth's rotation constant in real life?"
-    },
     {
      "who": "para",
      "mood": "happy",
-     "text": "The twist is, Moon tides slow Earth by 2.3 milliseconds every century!"
+     "text": "On your Earth, Mawsynram in India gets nearly twelve meters of rain yearly!"
+    },
+    {
+     "who": "terra",
+     "mood": "shocked",
+     "text": "Twelve meters? That is taller than a three-story house!"
+    }
+   ]
+  },
+  {
+   "type": "compare",
+   "bg": "heavy raindrops on glass",
+   "head": [
+    "ANNUAL RAINFALL",
+    "*COMPARISON*"
+   ],
+   "left": {
+    "name": "Dry Deserts",
+    "value": "10 mm"
+   },
+   "right": {
+    "name": "Mawsynram",
+    "value": "11,870 mm"
+   },
+   "lines": [
+    {
+     "who": "para",
+     "mood": "happy",
+     "text": "While deserts get almost nothing, Mawsynram pours non-stop!"
+    },
+    {
+     "who": "terra",
+     "mood": "thinking",
+     "text": "Nature really loves showing off her water!"
     }
    ]
   },
@@ -209,18 +234,18 @@
    "bg": "",
    "head": [
     "NEXT TIME",
-    "*RAIN EVERYWHERE*"
+    "*NO NIGHT?*"
    ],
    "lines": [
     {
-     "who": "terra",
+     "who": "para",
      "mood": "excited",
-     "text": "That is wild! What timeline do we visit next?"
+     "text": "Next time, Blue, I will show you a world where there is no night!"
     },
     {
-     "who": "para",
-     "mood": "happy",
-     "text": "Next time, Blue, I will show you a world where it rains every day everywhere! Welcome to Parallel Earth!"
+     "who": "terra",
+     "mood": "excited",
+     "text": "Welcome to Parallel Earth!"
     }
    ]
   },
@@ -231,18 +256,13 @@
     "WHICH EARTH",
     "*WOULD YOU PICK?*"
    ],
-   "a": "Endless daylight",
-   "b": "Endless night",
+   "a": "Endless rain",
+   "b": "Endless drought",
    "lines": [
     {
      "who": "terra",
      "mood": "thinking",
-     "text": "Which extreme side of Para's Earth would you pick?"
-    },
-    {
-     "who": "para",
-     "mood": "happy",
-     "text": "Would you pick A, endless daylight, or B, endless night? Comment below!"
+     "text": "Would you pick endless rain, or endless drought? Comment below!"
     }
    ]
   }
