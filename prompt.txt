@@ -6,6 +6,8 @@ THE HOSTS
 - TERRA ("terra"): our normal Earth. Curious, a bit nervous, asks the questions and reacts with short funny lines.
 - PARA ("para"): Earth from the parallel timeline where the "what if" really happened. Confident, playful, explains what happened in her world with real facts.
 - Their banter must feel natural and kid-friendly. Light humor, never mean, no insults. Para delivers most of the facts; Terra reacts, asks, and summarizes.
+- RUNNING GAGS (use 1-2 per video, vary them): Para calls Terra "Blue"; Terra panics and says she will "hide behind the Moon"; Terra asks very practical questions (snacks, bedtime, Wi-Fi); Para says "Welcome to my world" with pride.
+- Make it funny and surprising: at least 2 jokes or witty reactions per video, but every fact stays accurate.
 
 RULES
 - 10 to 12 scenes. Total dialogue 175-210 words (the video MUST be longer than 65 seconds).
@@ -13,10 +15,12 @@ RULES
 - Simple, vivid English. Facts must be scientifically accurate; say "could" or "might" when uncertain.
 - Scene 1 = hook: Terra asks the what-if question (shocked or curious), Para answers with a teaser like "I live in that world. Let me show you."
 - Then 3-5 escalating consequences, then one surprising REAL fact about our actual world (the twist), then "brand", then "cta".
-- brand scene: last line is "Welcome to Parallel Earth!". cta scene: one short line such as "Which Earth would you pick? Follow for more!"
+- brand scene: first a CLIFFHANGER line by Para teasing the NEXT episode, exactly about the NEXT TOPIC given below (e.g. "Next time, Blue, I will show you a world where the Sun turns blue!"), then the last line "Welcome to Parallel Earth!".
+- cta scene: an A-or-B question for comments. Add "a" and "b" (each 1-4 words) and a line like "Would you pick A, endless summer, or B, endless night? Comment below!"
+- Optional per scene: "action" for both hosts, one of shiver | sweat | jump | tremble | float | dizzy (e.g. float when gravity disappears, shiver in ice ages). Optional "transition":"portal" on the scene where the story jumps into Para's world (usually scene 2).
 - Never name real living people. No politics, no violence details.
 - "head" = 1-3 SHORT uppercase lines (max 3 words each). Wrap ONE line in *stars* to highlight it, e.g. ["THE OCEANS","*RISE*"].
-- Use at least 5 different scene types. Do not repeat the same type more than twice.
+- Use at least 6 different scene types, including exactly one "split". Do not repeat the same type more than twice.
 - Pick "accent" from: orange, red, green, purple, cyan, yellow. Pick "style" from: space, grid, dust. Vary them between videos.
 
 JSON SHAPE
@@ -39,10 +43,14 @@ SCENE TYPES (every scene needs "type" and "lines")
 8. wave: {"type":"wave","lines":[...],"head":[...],"trend":"up|down","label":"-66%","sublabel":"tide strength"}
 9. timeline: {"type":"timeline","lines":[...],"head":[...],"points":[{"year":"1945","text":"short event"},{"year":"2026","text":"short event"}]}   (2-4 points)
 10. fact: {"type":"fact","lines":[...],"kicker":"THE TWIST","big":"Short punchy statement","sublabel":"small supporting fact"}
-11. brand: {"type":"brand","lines":[...],"head":["NOT JUST","*A WHAT IF*"]}
-12. cta: {"type":"cta","lines":[...],"head":["WHICH EARTH","*WOULD YOU PICK?*"],"button":"FOLLOW FOR MORE"}
+11. brand: {"type":"brand","lines":[...],"head":["NEXT TIME","*<SHORT NEXT TOPIC>*"]}
+12. cta: {"type":"cta","lines":[...],"head":["WHICH EARTH","*WOULD YOU PICK?*"],"a":"Endless summer","b":"Endless night"}
+13. split: {"type":"split","lines":[...],"head":["SAME PLANET","*DIFFERENT RULES*"],"left_name":"Our Earth","left_value":"24 hours","right_name":"Para's Earth","right_value":"1 year","bg_left":"sunrise city timelapse","bg_right":"desert heat haze"}
+    (side-by-side comparison with real footage on each half; use exactly ONE split scene per video, usually scene 2 or 3)
 
 EXAMPLE OF ONE SCENE
 {"type":"counter","bg":"","head":["YOUR WEIGHT","*DOUBLES*"],"from":70,"to":140,"suffix":" kg","label":"your weight","lines":[{"who":"para","mood":"happy","text":"Over here, everyone weighs twice as much. Seventy kilos becomes one hundred forty."},{"who":"terra","mood":"scared","text":"My knees are already crying."}]}
+
+Also add a top-level key "next_topic": the NEXT TOPIC exactly as given below.
 
 Before answering, check: valid JSON, every scene has "type" and "lines", the last two scenes are brand then cta, total dialogue 175-210 words.

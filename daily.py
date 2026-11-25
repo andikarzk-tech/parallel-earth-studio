@@ -16,6 +16,11 @@ COMPILE_MIN = int(os.environ.get('COMPILE_MIN', '5') or 5)
 MIN_SECONDS = 66
 WIB = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(hours=7)
 CHAT_FILE = os.path.join(ROOT, 'telegram_chat_id.txt')
+NEXT_FILE = os.path.join(ROOT, 'next_topic.txt')
+IDEA_POOL = ['the Sun turned blue', 'humans could breathe underwater', 'Earth had rings like Saturn', 'the Moon was twice as close',
+             'oxygen levels doubled', 'Earth stopped spinning', 'there was no night', 'insects grew as big as dogs',
+             'the oceans were made of fresh water', 'Earth had two suns', 'gravity was half as strong', 'it rained every day everywhere',
+             'humans hibernated in winter', 'Earth was flat for one day', 'volcanoes never existed', 'trees could walk']
 N = int(os.environ.get('VIDEOS', '3') or 3)
 KEY = os.environ.get('GEMINI_API_KEY', '').strip()
 TG = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
@@ -54,9 +59,11 @@ def pick_model():
     return cands[:7]
 
 
-def ask_gemini(models, avoid, used_styles):
-    user = (PROMPT + '\n\nTOPIC: invent ONE fresh, surprising "What if" topic yourself (science, space, nature, history, human body, technology). '
-            'It must be different from all of these already-made topics:\n- ' + '\n- '.join(avoid[-150:] or ['(none yet)']) +
+def ask_gemini(models, avoid, used_styles, topic=None, next_topic=None):
+    topic_txt = (f'TOPIC (use exactly this): What if {topic}?' if topic else
+                 'TOPIC: invent ONE fresh, surprising "What if" topic yourself (science, space, nature, history, human body, technology).')
+    user = (PROMPT + f'\n\n{topic_txt}\nNEXT TOPIC (tease it in the brand scene): What if {next_topic}?\n'
+            'Both must be different from all of these already-made topics:\n- ' + '\n- '.join(avoid[-150:] or ['(none yet)']) +
             f'\n\nUse accent "{used_styles[0]}", style "{used_styles[1]}", voice "{used_styles[2]}".'
             '\nAlso add these top-level keys: "yt_title" (max 70 chars, catchy, ends with #shorts), '
             '"description" (2 short sentences), "hashtags" (5-8 hashtags in one string).')
@@ -169,7 +176,15 @@ def daily_run(cid):
     for i in range(1, N + 1):
         try:
             style = (ACCENTS[(len(avoid) + i) % len(ACCENTS)], STYLES[(len(avoid) + i) % len(STYLES)], random.choice(VOICES))
-            cfg = mock_cfg(i) if MOCK else ask_gemini(models, avoid + [m['title'] for m in made], style)
+            seen = [x.lower() for x in avoid + [m['title'] for m in made]]
+            queued = open(NEXT_FILE).read().strip() if os.path.exists(NEXT_FILE) else ''
+            pool = [x for x in IDEA_POOL if not any(x.split()[1] in s_ and x.split()[-1] in s_ for s_ in seen)] or IDEA_POOL
+            nxt = random.choice([x for x in pool if x != queued] or pool)
+            cfg = mock_cfg(i) if MOCK else ask_gemini(models, avoid + [m['title'] for m in made], style, queued or None, nxt)
+            if not MOCK:
+                nt = str(cfg.get('next_topic') or nxt).strip()
+                nt = re.sub(r'(?i)^what if\s+', '', nt).rstrip('?').strip() or nxt
+                open(NEXT_FILE, 'w').write(nt)
             log(f'[{i}/{N}] {cfg["title"]}')
             cfg['min_seconds'] = MIN_SECONDS
             cfg['speed'] = max(1.05, float(cfg.get('speed', 1.0) or 1.0))

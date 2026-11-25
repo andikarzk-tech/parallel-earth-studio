@@ -560,6 +560,22 @@ def sc_cta(cv, t, D, sc):
     pulse = 1 + 0.04 * math.sin(t * 6)
     k = ease((t - 0.8) / 0.4)
     btn = str(sc.get('button', 'FOLLOW FOR MORE')).upper()
+    if sc.get('a') and sc.get('b'):
+        for j, (lab, val, col) in enumerate((('A', sc['a'], BLUE_L), ('B', sc['b'], 0xFFFFB862))):
+            kk = ease((t - 0.6 - j * 0.25) / 0.35)
+            yy = 1290 + j * 150
+            cv.save(); cv.translate(540, yy); cv.scale(0.7 + 0.3 * kk, 0.7 + 0.3 * kk)
+            cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(-430, -60, 430, 60), 60, 60), paint(col, 0.18 * kk))
+            cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(-430, -60, 430, 60), 60, 60), paint(col, kk, stroke=5))
+            cv.drawCircle(-370, 0, 42, paint(col, kk))
+            cv.restore()
+            text(cv, lab, 540 - 370 * (0.7 + 0.3 * kk), yy + 20, 54, BG, kk, 'Black')
+            vv = str(val).upper()
+            vs = fit_size([vv], 640, 50, 'Black', 30)
+            text(cv, vv, 590, yy + vs * 0.36, vs, WHITE, kk, 'Black')
+        text(cv, 'COMMENT A OR B', 540, 1600, 44, S['accent'], ease((t - 1.2) / 0.4) * (0.75 + 0.25 * math.sin(t * 6)), 'Black', spacing=4)
+        fade_in(cv, t)
+        return
     bs = fit_size([btn], 480, 54)
     cv.save(); cv.translate(540, 1470); cv.scale(pulse, pulse)
     cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(-280, -70, 280, 70), 70, 70), paint(S['accent'], k))
@@ -568,7 +584,42 @@ def sc_cta(cv, t, D, sc):
     fade_in(cv, t)
 
 
-SCENES = {'title': sc_title, 'globe': sc_globe, 'counter': sc_counter, 'bars': sc_bars, 'words': sc_words,
+def sc_split(cv, t, D, sc):
+    skia = S['skia']
+    cv.clear(BG)
+    sides = [(S.get('bgL'), 0, 0xFF3A7BFF, BODIES['earth']), (S.get('bgR'), 540, 0xFFFF8A3D, BODIES['parallel'])]
+    for img, x0, tint, colors in sides:
+        cv.save(); cv.clipRect(skia.Rect(x0, 0, x0 + 540, H))
+        if img is not None:
+            cv.drawImage(img, x0, 0)
+        else:
+            bg(cv, t)
+            globe(cv, x0 + 270, 980, 190, colors[0], colors[1], t * 0.2)
+        cv.drawRect(skia.Rect(x0, 0, x0 + 540, H), paint(tint, 0.13))
+        shade = skia.GradientShader.MakeLinear([skia.Point(0, 0), skia.Point(0, H)], [acol(BG, 0.85), acol(BG, 0.2), acol(BG, 0.3), acol(BG, 0.9)], [0, 0.35, 0.7, 1])
+        cv.drawRect(skia.Rect(x0, 0, x0 + 540, H), skia.Paint(Shader=shade))
+        cv.restore()
+    # glowing rift in the middle
+    pth = skia.Path(); pth.moveTo(540, 0)
+    for yy in range(0, H + 60, 60):
+        pth.lineTo(540 + math.sin(yy * 0.05 + t * 8) * 14, yy)
+    cv.drawPath(pth, paint(WHITE, 0.25, stroke=26)); cv.drawPath(pth, paint(WHITE, 0.95, stroke=6))
+    k = ease((t - 0.2) / 0.4)
+    text(cv, str(sc.get('left_name', 'OUR EARTH')).upper(), 270, 640, 44, BLUE_L, k, 'Black', spacing=3)
+    text(cv, str(sc.get('right_name', "PARA'S EARTH")).upper(), 810, 640, 44, 0xFFFFB862, k, 'Black', spacing=3)
+    for val, xx, col, st in ((sc.get('left_value', ''), 270, WHITE, 0.5), (sc.get('right_value', ''), 810, 0xFFFFB862, 0.9)):
+        val = str(val or '').upper()
+        if val:
+            kk = ease((t - st) / 0.4)
+            vs = fit_size(wrap(val, 84, 470) or [val], 470, 84, 'Black', 40)
+            for j, ln in enumerate(wrap(val, vs, 470)[:3]):
+                text(cv, ln, xx, 1060 + j * vs * 1.08, vs, col, kk, 'Black', scale=0.8 + 0.2 * kk)
+    headline(cv, sc.get('head'), t, 380, 96)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+SCENES = {'split': sc_split, 'title': sc_title, 'globe': sc_globe, 'counter': sc_counter, 'bars': sc_bars, 'words': sc_words,
           'compare': sc_compare, 'distance': sc_distance, 'wave': sc_wave, 'timeline': sc_timeline,
           'fact': sc_fact, 'brand': sc_brand, 'cta': sc_cta}
 
@@ -587,21 +638,41 @@ def _arc(cv, cx, cy, w, h, start, sweep, color, width):
     cv.drawArc(skia.Rect(cx - w, cy - h, cx + w, cy + h), start, sweep, False, paint(color, 1, stroke=width))
 
 
-def mascot(cv, who, cx, cy, r, mood='happy', mouth=0.0, t=0.0, look=0.0, talking=False, a=1.0, wave=0.0):
+def mascot(cv, who, cx, cy, r, mood='happy', mouth=0.0, t=0.0, look=0.0, talking=False, a=1.0, wave=0.0,
+           action='', point=None, spin=0.0):
     skia = S['skia']
     c = CHAR.get(who, CHAR['terra'])
-    if a <= 0:
+    if a <= 0 or r <= 2:
         return
     breathe = 1 + 0.018 * math.sin(t * 2.2 + (0 if who == 'terra' else 1.7))
     bob = -abs(math.sin(t * 9)) * 7 * mouth if talking else 0
+    dx = dy = rot = 0.0
+    sy = 1.0
+    if action == 'jump':
+        ph = abs(math.sin(t * 5.5)); dy = -ph * r * 0.45; sy = 1 - 0.12 * (1 - ph) ** 6
+    elif action == 'tremble':
+        dx = math.sin(t * 70) * r * 0.045
+    elif action == 'shiver':
+        dx = math.sin(t * 55) * r * 0.06; dy = math.cos(t * 47) * r * 0.02
+    elif action == 'float':
+        dy = math.sin(t * 1.6) * r * 0.28; rot = math.sin(t * 1.1) * 12
+    elif action == 'dizzy':
+        rot = math.sin(t * 3) * 16
+    elif action == 'sweat':
+        sy = 0.94 + 0.02 * math.sin(t * 3)
+    rot += spin
     cv.save()
-    cv.translate(cx, cy + bob); cv.scale(breathe, 1 / breathe); cv.translate(-cx, -cy)
+    cv.translate(cx + dx, cy + bob + dy); cv.rotate(rot); cv.scale(breathe, sy / breathe); cv.translate(-cx, -cy)
     # little arms (wave on brand/cta)
     arm = paint(c['dark'], a, stroke=r * 0.1)
     for side in (-1, 1):
         sx = cx + side * r * 0.92
         ang = (0.6 + 0.5 * math.sin(t * 10)) if (wave and side == (1 if who == 'terra' else -1)) else 0.25
         ex, ey = sx + side * r * 0.35 * math.cos(ang), cy + r * 0.15 - r * 0.45 * math.sin(ang)
+        if point and side == (1 if who == 'terra' else -1):
+            vx, vy = point[0] - sx, point[1] - (cy + r * 0.2)
+            L = math.hypot(vx, vy) or 1
+            ex, ey = sx + vx / L * r * 0.75, cy + r * 0.2 + vy / L * r * 0.75
         cv.drawLine(sx, cy + r * 0.2, ex, ey, arm)
         cv.drawCircle(ex, ey, r * 0.11, paint(c['light'], a))
     # body
@@ -686,6 +757,59 @@ def mascot(cv, who, cx, cy, r, mood='happy', mouth=0.0, t=0.0, look=0.0, talking
         cv.drawLine(cx - r * 0.12, my + r * 0.02, cx + r * 0.16, my - r * 0.04, paint(INK, a, stroke=r * 0.05))
     else:
         _arc(cv, cx, my - r * 0.08, r * 0.24, r * 0.16, 20, 140, INK, r * 0.055)
+    if action == 'shiver':
+        cv.drawCircle(cx, cy, r, paint(0xFFBFEFFF, 0.28 * a))
+        for k_ in range(5):
+            ix = cx - r * 0.6 + k_ * r * 0.3
+            iy = cy + math.sqrt(max(0, r * r - (ix - cx) ** 2)) - r * 0.05
+            pth = skia.Path(); pth.moveTo(ix - r * 0.06, iy); pth.lineTo(ix + r * 0.06, iy); pth.lineTo(ix, iy + r * (0.18 + 0.06 * (k_ % 2))); pth.close()
+            cv.drawPath(pth, paint(0xFFE6FAFF, 0.9 * a))
+    if action == 'sweat':
+        for k_ in range(3):
+            ph = (t * 0.9 + k_ * 0.33) % 1.0
+            ddx = cx + (k_ - 1) * r * 0.55
+            ddy = cy - r * 0.7 + ph * r * 1.4
+            drop = skia.Path(); drop.addCircle(ddx, ddy, r * 0.07)
+            drop.moveTo(ddx - r * 0.065, ddy - r * 0.02); drop.lineTo(ddx, ddy - r * 0.17); drop.lineTo(ddx + r * 0.065, ddy - r * 0.02)
+            cv.drawPath(drop, paint(0xFF9FE3FF, (1 - ph) * a))
+    if action == 'dizzy':
+        for k_ in range(3):
+            an = t * 4 + k_ * 2.09
+            star(cv, cx + math.cos(an) * r * 0.75, cy - r * 1.05 + math.sin(an) * r * 0.18, r * 0.12, 0xFFFFE14D, a)
+    cv.restore()
+
+
+def star(cv, x, y, rr, col, a=1.0):
+    skia = S['skia']
+    p = skia.Path()
+    for k in range(10):
+        ang = -math.pi / 2 + k * math.pi / 5
+        rad = rr if k % 2 == 0 else rr * 0.45
+        (p.moveTo if k == 0 else p.lineTo)(x + math.cos(ang) * rad, y + math.sin(ang) * rad)
+    p.close()
+    cv.drawPath(p, paint(col, a))
+
+
+def react_icon(cv, kind, x, y, s, a):
+    """Small pop-up reaction above a character: ! ? sweat stars snow."""
+    skia = S['skia']
+    if a <= 0 or s <= 0:
+        return
+    cv.save(); cv.translate(x, y); cv.scale(s, s)
+    if kind in ('!', '?'):
+        cv.drawCircle(0, 0, 38, paint(WHITE, a)); cv.drawCircle(0, 0, 38, paint(INK, a, stroke=5))
+        text(cv, kind, 0, 19, 54, 0xFFFF4D4D if kind == '!' else 0xFF3A7BFF, a, 'Black')
+    elif kind == 'stars':
+        star(cv, -26, 0, 22, 0xFFFFE14D, a); star(cv, 22, -18, 16, 0xFFFFE14D, a); star(cv, 18, 22, 12, 0xFFFFFFFF, a)
+    elif kind == 'sweat':
+        for dx_, dy_ in ((-14, 0), (16, -14)):
+            p = skia.Path(); p.addCircle(dx_, dy_, 11); p.moveTo(dx_ - 10, dy_ - 3); p.lineTo(dx_, dy_ - 28); p.lineTo(dx_ + 10, dy_ - 3)
+            cv.drawPath(p, paint(0xFF9FE3FF, a))
+    elif kind == 'snow':
+        sp_ = paint(0xFFE6FAFF, a, stroke=5)
+        for k in range(3):
+            an = k * math.pi / 3
+            cv.drawLine(-math.cos(an) * 26, -math.sin(an) * 26, math.cos(an) * 26, math.sin(an) * 26, sp_)
     cv.restore()
 
 
@@ -711,17 +835,70 @@ def mascot_layer(cv, t, sc):
         pos = {'terra': (330, 1060, 150), 'para': (750, 1060, 150)}; wave = 1.0
     elif kind == 'cta':
         pos = {'terra': (330, 720, 115), 'para': (750, 720, 115)}; wave = 1.0
+    eff = str(sc.get('effect', '')).lower()
+    forced = str(sc.get('action', '') or '').lower()
+    line_start = {}
+    for (st, en, who_, mood_) in tl:
+        if st <= t:
+            line_start[who_] = (st, mood_)
     for who in ('terra', 'para'):
         x, y, r = pos[who]
         talking = speaker == who
         if talking:
             r *= 1.08
+        mood = mood_of.get(who, default)
         look = 0.0 if talking else (1.0 if who == 'terra' else -1.0) if speaker else (0.6 if who == 'terra' else -0.6)
-        pop = ease(t / 0.35) if kind == 'title' else 1.0
-        mascot(cv, who, x, y + (1 - pop) * 200, r, mood_of.get(who, default), amp if talking else 0.0, t, look, talking, 1.0, wave)
+        act = forced
+        if not act:
+            if eff == 'freeze' or 'freez' in str(sc.get('bg', '')):
+                act = 'shiver'
+            elif eff == 'heat':
+                act = 'sweat'
+            elif eff == 'wobble':
+                act = 'dizzy'
+            elif mood == 'scared':
+                act = 'tremble'
+            elif mood == 'excited' and talking:
+                act = 'jump'
+        point = None
+        if talking and kind in ('counter', 'bars', 'compare', 'timeline', 'wave', 'globe', 'distance', 'split') and act in ('', 'tremble'):
+            point = (540, 960)
+        pop, spin = 1.0, 0.0
+        if kind == 'title' and who == 'para':
+            pop = ease((t - 0.7) / 0.5); spin = (1 - pop) * 540
+            pr_ = clamp((t - 0.45) / 0.35) * (1 - clamp((t - 1.9) / 0.5))
+            if pr_ > 0:
+                portal_ring(cv, x, y, r * 1.45 * pr_, t, pr_)
+        elif kind == 'title':
+            pop = ease(t / 0.35)
+        if pop <= 0:
+            continue
+        mascot(cv, who, x, y + (1 - pop) * (0 if who == 'para' and kind == 'title' else 200), r * (pop if (kind == 'title' and who == 'para') else 1.0),
+               mood, amp if talking else 0.0, t, look, talking, 1.0, wave, act, point, spin)
+        if who in line_start:
+            st_, m_ = line_start[who]
+            icon = {'shocked': '!', 'thinking': '?', 'scared': 'sweat', 'excited': 'stars'}.get(m_)
+            if act == 'shiver':
+                icon = 'snow'
+            age = t - st_
+            if icon and age < 1.1:
+                k_ = ease(age / 0.18) * (1 - clamp((age - 0.85) / 0.25))
+                react_icon(cv, icon, x + (40 if who == 'terra' else -40), y - r - 55 - 20 * ease(age / 0.5), k_, k_)
         if kind not in ('brand', 'cta'):
             nm = CHAR[who]['name']
             text(cv, nm, x, y + r + 44, 28, CHAR[who]['hi'], 0.9, 'Black', spacing=3)
+
+
+def portal_ring(cv, x, y, rad, t, a):
+    skia = S['skia']
+    if rad <= 2:
+        return
+    glow = skia.GradientShader.MakeRadial(skia.Point(x, y), rad * 1.3, [acol(0xFF8A5CFF, 0.55 * a), acol(0xFF2E1A6B, 0.35 * a), 0x00000000])
+    cv.drawCircle(x, y, rad * 1.3, skia.Paint(AntiAlias=True, Shader=glow))
+    for k in range(4):
+        col = BLUE_L if k % 2 == 0 else 0xFFFFB862
+        rr = rad * (1 - k * 0.16)
+        cv.drawArc(skia.Rect(x - rr, y - rr, x + rr, y + rr), (t * 320 * (1 if k % 2 else -1) + k * 70) % 360, 230, False, paint(col, 0.9 * a, stroke=max(3, rad * 0.06)))
 
 # ------------------------------------------------------------ captions + camera
 NO_CAPTION = ('title', 'words', 'brand', 'cta')
@@ -769,6 +946,9 @@ def captions(cv, t, sc):
         return
     words = [re.sub(r'[^\w%°+\-.\'’$,]', '', w).strip('.,;:') .upper() for w, _, _ in cur]
     words = [w for w in words if w] or ['']
+    if S.get('duo') and cur_who in CHAR:
+        bubble(cv, t, cur, words, cur_who)
+        return
     size = 86
     f = font(size, 'Black')
     sp = f.measureText(' ')
@@ -795,6 +975,42 @@ def captions(cv, t, sc):
 CAPTION_HI = 0xFFFFE14D
 
 
+def bubble(cv, t, cur, words, who):
+    skia = S['skia']
+    size = 64
+    f = font(size, 'Black'); sp = f.measureText(' ')
+    total = sum(f.measureText(w) for w in words) + sp * (len(words) - 1)
+    while total > 560 and size > 40:
+        size -= 4; f = font(size, 'Black'); sp = f.measureText(' ')
+        total = sum(f.measureText(w) for w in words) + sp * (len(words) - 1)
+    bw, bh = max(240, total + 64), size + 50
+    cx, cy = 540, 1575
+    pop = ease((t - cur[0][1]) / 0.14)
+    sx_ = 0.6 + 0.4 * pop
+    tail_x = 300 if who == 'terra' else 780
+    cv.save(); cv.translate(tail_x, cy); cv.scale(sx_, sx_); cv.translate(-tail_x, -cy)
+    rect = skia.Rect(cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2)
+    tail = skia.Path()
+    if who == 'terra':
+        tail.moveTo(rect.left() + 30, cy - 10); tail.lineTo(250, cy - 70); tail.lineTo(rect.left() + 36, cy + 22)
+    else:
+        tail.moveTo(rect.right() - 30, cy - 10); tail.lineTo(830, cy - 70); tail.lineTo(rect.right() - 36, cy + 22)
+    tail.close()
+    shadow = paint(0xFF000000, 0.35)
+    cv.drawRRect(skia.RRect.MakeRectXY(rect.makeOffset(0, 8), 34, 34), shadow)
+    cv.drawPath(tail, paint(WHITE)); cv.drawPath(tail, paint(INK, 1, stroke=6))
+    cv.drawRRect(skia.RRect.MakeRectXY(rect, 34, 34), paint(WHITE))
+    cv.drawRRect(skia.RRect.MakeRectXY(rect, 34, 34), paint(INK, 1, stroke=6))
+    cv.drawPath(tail, paint(WHITE))
+    x = cx - total / 2
+    hi = CHAR[who]['dark']
+    for w, (_, a, b) in zip(words, cur):
+        active = a <= t < b + 0.05
+        cv.drawString(w, x, cy + size * 0.36, f, paint(hi if active else INK))
+        x += f.measureText(w) + sp
+    cv.restore()
+
+
 def camera(cv, t, D, kind):
     z = 1 + 0.09 * (1 - ease(t / 0.32)) + 0.045 * (t / max(D, 0.1))
     dx = dy = 0.0
@@ -804,18 +1020,51 @@ def camera(cv, t, D, kind):
     cv.translate(540 + dx, 960 + dy); cv.scale(z, z); cv.translate(-540, -960)
 
 
-def open_bg(path, D):
+def open_bg(path, D, w=W, h=H):
     cmd = ['ffmpeg', '-loglevel', 'error', '-stream_loop', '-1', '-i', path, '-t', f'{D + 0.5:.2f}', '-an',
-           '-vf', f'scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={FPS},format=rgba', '-f', 'rawvideo', '-']
+           '-vf', f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps={FPS},format=rgba', '-f', 'rawvideo', '-']
     return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
 
-def next_bg(proc, last):
+def next_bg(proc, last, w=W, h=H):
     skia = S['skia']
-    buf = proc.stdout.read(W * H * 4) if proc else b''
-    if len(buf) < W * H * 4:
+    buf = proc.stdout.read(w * h * 4) if proc else b''
+    if len(buf) < w * h * 4:
         return last
-    return skia.Image.fromarray(np.frombuffer(buf, np.uint8).reshape(H, W, 4).copy(), colorType=skia.kRGBA_8888_ColorType)
+    return skia.Image.fromarray(np.frombuffer(buf, np.uint8).reshape(h, w, 4).copy(), colorType=skia.kRGBA_8888_ColorType)
+
+
+def glitch(arr, t, seed):
+    """Timeline-jump glitch on the first frames of a scene."""
+    k = 1 - t / 0.24
+    if k <= 0:
+        return arr
+    rng = np.random.default_rng(seed)
+    out = arr.copy()
+    sh = int(34 * k)
+    out[:, :, 0] = np.roll(arr[:, :, 0], sh, axis=1)
+    out[:, :, 2] = np.roll(arr[:, :, 2], -sh, axis=1)
+    for _ in range(7):
+        y0 = int(rng.integers(0, H - 90)); hh = int(rng.integers(14, 90))
+        out[y0:y0 + hh] = np.roll(out[y0:y0 + hh], int(rng.integers(-90, 90) * k), axis=1)
+    return out
+
+
+def portal_wipe(cv, t):
+    """Iris that opens from a swirling portal at the start of a scene in the other timeline."""
+    skia = S['skia']
+    if t >= 0.75:
+        return
+    k = ease(t / 0.75)
+    R = 30 + 1250 * k
+    mask = skia.Path(); mask.setFillType(skia.PathFillType.kEvenOdd)
+    mask.addRect(skia.Rect(-10, -10, W + 10, H + 10)); mask.addCircle(540, 960, R)
+    cv.drawPath(mask, paint(0xFF05030F, 1.0))
+    for j in range(5):
+        rr = R + 10 + j * 18
+        col = BLUE_L if j % 2 == 0 else 0xFFFFB862
+        cv.drawArc(skia.Rect(540 - rr, 960 - rr, 540 + rr, 960 + rr), (t * 700 * (1 if j % 2 else -1) + j * 60) % 360, 250, False,
+                   paint(col, 0.9 * (1 - k * 0.6), stroke=10 - j))
 
 
 # ------------------------------------------------------------ render
@@ -844,20 +1093,34 @@ def render_scene(args):
     pr = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     kind = str(sc.get('type', 'fact')).lower()
     bgp = open_bg(sc['_bg'], D) if sc.get('_bg') and os.path.exists(sc['_bg']) else None
-    S['bgimg'] = None
+    bgl = open_bg(sc['_bgL'], D, 540, H) if sc.get('_bgL') and os.path.exists(sc['_bgL']) else None
+    bgr = open_bg(sc['_bgR'], D, 540, H) if sc.get('_bgR') and os.path.exists(sc['_bgR']) else None
+    S['bgimg'] = S['bgL'] = S['bgR'] = None
+    idx = int(sc.get('_idx', 0))
+    portal = bool(sc.get('_portal'))
     for f in range(n):
         t = f / FPS
         if bgp:
             S['bgimg'] = next_bg(bgp, S['bgimg'])
+        if bgl:
+            S['bgL'] = next_bg(bgl, S['bgL'], 540, H)
+        if bgr:
+            S['bgR'] = next_bg(bgr, S['bgR'], 540, H)
         with surf as cv:
             cv.clear(BG)
             cv.save(); camera(cv, t, D, kind); fn(cv, t, D, sc); cv.restore()
             mascot_layer(cv, t, sc)
             captions(cv, t, sc)
-        pr.stdin.write(surf.makeImageSnapshot().toarray(colorType=skia.kRGBA_8888_ColorType).tobytes())
+            if portal:
+                portal_wipe(cv, t)
+        arr = surf.makeImageSnapshot().toarray(colorType=skia.kRGBA_8888_ColorType)
+        if idx > 0 and not portal and t < 0.24:
+            arr = glitch(arr, t, idx * 1000 + f)
+        pr.stdin.write(arr.tobytes())
     pr.stdin.close()
-    if bgp:
-        bgp.kill()
+    for p_ in (bgp, bgl, bgr):
+        if p_:
+            p_.kill()
     ok = pr.wait() == 0
     if ok:
         os.replace(tmp, path)
@@ -870,9 +1133,12 @@ def still(cfg, i, D, t, path):
     sc = cfg['scenes'][i]
     fn = SCENES.get(str(sc.get('type', 'fact')).lower(), sc_fact)
     surf = skia.Surface(W, H)
-    S['bgimg'] = None
+    S['bgimg'] = S['bgL'] = S['bgR'] = None
     if sc.get('_bg') and os.path.exists(sc['_bg']):
         p = open_bg(sc['_bg'], D); S['bgimg'] = next_bg(p, None); p.kill()
+    for key_, sk in (('_bgL', 'bgL'), ('_bgR', 'bgR')):
+        if sc.get(key_) and os.path.exists(sc[key_]):
+            p = open_bg(sc[key_], D, 540, H); S[sk] = next_bg(p, None, 540, H); p.kill()
     with surf as cv:
         cv.clear(BG)
         cv.save(); camera(cv, t, D, str(sc.get('type', ''))); fn(cv, t, D, sc); cv.restore()
@@ -892,7 +1158,7 @@ def trim_silence(a, thr=0.01):
     return a[max(0, idx[0] - int(SR * 0.03)):min(len(a), idx[-1] + int(SR * 0.08))]
 
 
-def sfx_track(n, starts, kinds):
+def sfx_track(n, starts, kinds, scenes=None):
     rng = np.random.default_rng(5)
     out = np.zeros(n, dtype=np.float32)
 
@@ -917,10 +1183,36 @@ def sfx_track(n, starts, kinds):
     tb = np.arange(Lb) / SR
     freq = 38 + 50 * np.exp(-tb * 6)
     boom = (np.sin(2 * np.pi * np.cumsum(freq) / SR) * np.exp(-tb * 3.2) * 0.55).astype(np.float32)
-    for st, kd in zip(starts, kinds):
-        place(whoosh, max(0, st - 0.3))
+    # cartoon pop, boing, zap, whirl
+    Lp = int(SR * 0.12); tp = np.arange(Lp) / SR
+    pop = (np.sin(2 * np.pi * (900 - 2500 * tp) * tp) * np.exp(-tp * 40) * 0.22).astype(np.float32)
+    Lg = int(SR * 0.45); tg = np.arange(Lg) / SR
+    fg = 220 + 160 * np.sin(2 * np.pi * 7 * tg) * np.exp(-tg * 3) + 200 * tg
+    boing = (np.sin(2 * np.pi * np.cumsum(fg) / SR) * np.exp(-tg * 6) * 0.2).astype(np.float32)
+    Lz = int(SR * 0.22); tz = np.arange(Lz) / SR
+    zap = (np.sign(np.sin(2 * np.pi * (1800 - 6000 * tz) * tz)) * rng.uniform(0.6, 1, Lz) * np.exp(-tz * 18) * 0.07).astype(np.float32)
+    Lw = int(SR * 0.9); tw = np.arange(Lw) / SR
+    fw = 150 + 900 * (tw / 0.9) ** 1.5
+    whirl = (np.sin(2 * np.pi * np.cumsum(fw) / SR) * np.sin(np.pi * tw / 0.9) * 0.12 + whoosh[:Lw] * 0.6 if Lw <= len(whoosh) else
+             np.sin(2 * np.pi * np.cumsum(fw) / SR) * np.sin(np.pi * tw / 0.9) * 0.12).astype(np.float32)
+    for j, (st, kd) in enumerate(zip(starts, kinds)):
+        sc = (scenes or [{}] * len(starts))[j] if scenes else {}
+        if sc.get('_portal'):
+            place(whirl, max(0, st - 0.1))
+        elif j > 0:
+            place(zap, st)
+            place(whoosh, max(0, st - 0.3))
+        else:
+            place(whoosh, max(0, st - 0.3))
         if kd in ('title', 'words', 'brand'):
             place(boom, st)
+        for (ls, le, who, mood) in (sc.get('_tl') or []):
+            if mood in ('shocked', 'thinking', 'scared'):
+                place(pop, st + ls)
+            elif mood == 'excited':
+                place(boing, st + ls)
+        if kd == 'title' and scenes:
+            place(whirl * 0.8, st + 0.45)  # Para's portal entrance
     return out
 
 
@@ -953,7 +1245,32 @@ def fetch_backgrounds(scenes, work, log=print):
         return
     import requests
     used = set()
+
+    def grab(q, path):
+        if key:
+            return False
+        vid, url = pixabay_pick(pkey, q, used)
+        if not url:
+            return False
+        with requests.get(url, stream=True, timeout=120) as dl:
+            dl.raise_for_status()
+            with open(path, 'wb') as fh:
+                for chunk in dl.iter_content(1 << 20):
+                    fh.write(chunk)
+        used.add(vid)
+        return True
     for i, sc in enumerate(scenes):
+        if str(sc.get('type', '')).lower() == 'split':
+            for side, k_ in (('bg_left', '_bgL'), ('bg_right', '_bgR')):
+                q = str(sc.get(side, '') or '').strip()
+                if q:
+                    try:
+                        pth = os.path.join(work, f'bg_{i+1:02d}_{side}.mp4')
+                        if grab(q, pth):
+                            sc[k_] = pth; log(f'  split {side} "{q}": ok')
+                    except Exception as e:
+                        log(f'  split {side} "{q}" failed: {str(e)[:100]}')
+            continue
         q = str(sc.get('bg', '') or '').strip()
         if not q or str(sc.get('type', '')).lower() in ('brand', 'cta'):
             continue
@@ -1000,6 +1317,16 @@ def fetch_backgrounds(scenes, work, log=print):
             log(f'  bg "{q}": pexels video {v["id"]}')
         except Exception as e:
             log(f'  bg "{q}" failed: {str(e)[:120]}')
+
+
+def S_duo_portal(scenes, j):
+    sc = scenes[j]
+    if str(sc.get('transition', '')).lower() == 'portal':
+        return True
+    if str(sc.get('type', '')).lower() == 'split':
+        return True
+    duo = any(x.get('lines') for x in scenes)
+    return duo and j == 1
 
 
 def build(cfg, out_dir=None, workers=2, log=print):
@@ -1073,6 +1400,9 @@ def build(cfg, out_dir=None, workers=2, log=print):
     vo = np.concatenate(segs)
     vo = np.pad(vo, (0, max(0, int(total * SR) - len(vo))))[:int(total * SR)]
     fetch_backgrounds(scenes, work, log)
+    for j, sc in enumerate(scenes):
+        sc['_idx'] = j
+        sc['_portal'] = S_duo_portal(scenes, j)
     starts = np.cumsum([0] + frames[:-1])
     # ambient pad, root note varies per title
     root = [49.0, 55.0, 58.3, 61.7, 65.4][int(hashlib.md5(name.encode()).hexdigest()[:2], 16) % 5]
@@ -1081,7 +1411,7 @@ def build(cfg, out_dir=None, workers=2, log=print):
     pad *= 0.6 + 0.4 * np.sin(2 * np.pi * 0.05 * tt)
     fade = np.minimum(1, np.minimum(tt / 2.0, (total - tt) / 2.5))
     pad = pad / np.abs(pad).max() * 0.06 * fade
-    mix = vo / max(1e-6, np.abs(vo).max()) * 0.92 + pad + sfx_track(len(vo), starts, [str(sc.get('type', '')) for sc in scenes])
+    mix = vo / max(1e-6, np.abs(vo).max()) * 0.92 + pad + sfx_track(len(vo), starts, [str(sc.get('type', '')) for sc in scenes], scenes)
     sf.write(os.path.join(work, 'audio.wav'), mix.astype(np.float32), SR)
     log(f'Voice-over: {total:.1f} s  ->  rendering {len(scenes)} scenes...')
     jobs = [(cfg, i, frames[i], os.path.join(work, f'scene_{i+1:02d}.mp4')) for i in range(len(scenes))]
