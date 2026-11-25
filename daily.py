@@ -51,7 +51,7 @@ def pick_model():
     good.sort(key=score, reverse=True)
     cands = good + [n for n in names if n not in good and not any(b in n for b in bad)]
     log('Gemini models to try:', cands[:4])
-    return cands[:6]
+    return cands[:7]
 
 
 def ask_gemini(models, avoid, used_styles):
@@ -60,6 +60,18 @@ def ask_gemini(models, avoid, used_styles):
             f'\n\nUse accent "{used_styles[0]}", style "{used_styles[1]}", voice "{used_styles[2]}".'
             '\nAlso add these top-level keys: "yt_title" (max 70 chars, catchy, ends with #shorts), '
             '"description" (2 short sentences), "hashtags" (5-8 hashtags in one string).')
+    last = None
+    for rnd in range(3):
+        if rnd:
+            log(f'All Gemini models busy, waiting {90 * rnd} s before round {rnd + 1}')
+            time.sleep(90 * rnd)
+        cfg = try_models(models, user)
+        if cfg:
+            return cfg
+    raise RuntimeError('Gemini is overloaded right now (503). Try again later.')
+
+
+def try_models(models, user):
     last = None
     for model in models:
         for attempt in range(2):
@@ -82,7 +94,7 @@ def ask_gemini(models, avoid, used_styles):
                 last = e
                 log(f'{model} attempt {attempt+1} failed: {str(e)[:200]}')
                 time.sleep(10)
-    raise RuntimeError(f'Gemini failed: {last}')
+    return None
 
 
 def validate(cfg):
