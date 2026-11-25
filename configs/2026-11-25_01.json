@@ -1,136 +1,235 @@
 {
- "title": "What If Earth's Gravity Doubled?",
- "voice": "am_puck",
+ "title": "What If Oceans Had No Salt?",
+ "yt_title": "What If All Oceans Turned Into Freshwater? #shorts",
+ "description": "Imagine if ocean salt vanished overnight. Explore how marine life, weather, and freezing waters would change Earth forever.",
+ "hashtags": "#whatif #science #earth #ocean #parallelearth",
  "speed": 1.05,
- "accent": "cyan",
- "style": "grid",
- "yt_title": "What If Earth's Gravity Doubled Overnight? #shorts",
- "description": "What would happen if Earth's gravity suddenly doubled? From collapsing buildings to dense atmospheres, explore this terrifying parallel reality.",
- "hashtags": "#whatif #science #space #gravity #parallelearth #physics",
+ "accent": "yellow",
+ "style": "dust",
+ "voice": "bm_fable",
  "scenes": [
   {
    "type": "title",
-   "say": "What if Earth's gravity suddenly doubled overnight? Every single object on the planet would instantly weigh twice as much.",
-   "head": [
-    "WHAT IF GRAVITY",
-    "*DOUBLED*"
-   ],
+   "bg": "ocean waves beach coast",
    "visual": "earth",
    "effect": "pulse",
-   "bg": "deep space stars"
+   "head": [
+    "WHAT IF OCEANS",
+    "*LOST ALL SALT?*"
+   ],
+   "lines": [
+    {
+     "who": "terra",
+     "mood": "shocked",
+     "text": "What if all ocean salt suddenly vanished into freshwater?"
+    },
+    {
+     "who": "para",
+     "mood": "excited",
+     "text": "I drink from the Atlantic daily! Check out my world."
+    }
+   ]
   },
   {
    "type": "globe",
-   "say": "Right away, human bodies would crush under their own weight. Simple walking would become nearly impossible for almost everyone.",
-   "head": [
-    "CRUSHING",
-    "*HUMAN WEIGHT*"
-   ],
+   "bg": "",
    "body": "earth",
-   "effect": "shrink",
-   "label": "2X GRAVITY",
-   "sublabel": "instant impact",
-   "bg": ""
-  },
-  {
-   "type": "bars",
-   "say": "Trees and massive skyscrapers could collapse instantly, unable to hold their new immense weight. Structural failure would sweep cities worldwide.",
+   "effect": "wobble",
+   "label": "FRESHWATER EARTH",
+   "sublabel": "97% marine species in danger",
    "head": [
-    "BUILDINGS",
-    "*COLLAPSING*"
+    "MASSIVE MARINE",
+    "*COLLAPSE*"
    ],
-   "trend": "down",
-   "label": "structural stability",
-   "bg": "skyscraper aerial city"
-  },
-  {
-   "type": "counter",
-   "say": "Air pressure near the surface would double. The dense atmosphere would trap extreme heat, triggering rapid climate collapse.",
-   "head": [
-    "ATMOSPHERIC",
-    "*PRESSURE*"
-   ],
-   "from": 1,
-   "to": 2,
-   "decimals": 1,
-   "prefix": "",
-   "suffix": " atm",
-   "label": "surface pressure",
-   "bg": ""
-  },
-  {
-   "type": "wave",
-   "say": "Ocean tides would compress violently, flooding low coastlines before settling into hyper-dense seas. Marine life would face crushing water pressure.",
-   "head": [
-    "DENSE",
-    "*OCEANS*"
-   ],
-   "trend": "down",
-   "label": "sea level",
-   "sublabel": "coastal compression",
-   "bg": "ocean storm waves"
+   "lines": [
+    {
+     "who": "para",
+     "mood": "thinking",
+     "text": "Without salt, ninety-seven percent of marine life like corals and turtles would collapse instantly."
+    },
+    {
+     "who": "terra",
+     "mood": "sad",
+     "text": "Sea creatures cannot survive in freshwater!"
+    }
+   ]
   },
   {
    "type": "words",
-   "say": "Flying birds and commercial airplanes would fall from the sky. Wings could no longer generate enough lift to overcome gravity.",
+   "bg": "frozen ocean winter ice",
    "head": [
-    "FALLING FROM",
-    "*THE SKY*"
+    "OCEANS FREEZE",
+    "*SOLID*"
    ],
    "words": [
-    "NO LIFT",
-    "BIRDS CRASH",
-    "FLIGHT IMPOSSIBLE"
+    "FROZEN OCEANS",
+    "EXTREME WINTERS",
+    "COLLAPSED WEATHER"
    ],
-   "bg": "airplane flying sunset"
+   "lines": [
+    {
+     "who": "para",
+     "mood": "thinking",
+     "text": "Freshwater freezes fast! Huge parts of northern oceans freeze solid every winter."
+    },
+    {
+     "who": "terra",
+     "mood": "scared",
+     "text": "That means instant ice ages for half the planet!"
+    }
+   ]
+  },
+  {
+   "type": "bars",
+   "bg": "stormy ocean waves",
+   "trend": "down",
+   "label": "ocean heat transport",
+   "head": [
+    "CLIMATE SYSTEM",
+    "*CRASHES*"
+   ],
+   "lines": [
+    {
+     "who": "para",
+     "mood": "thinking",
+     "text": "Global weather breaks down. Ocean currents depend on salt density to pump planetary heat."
+    },
+    {
+     "who": "terra",
+     "mood": "shocked",
+     "text": "Without currents, Europe turns into a giant ice cube!"
+    }
+   ]
   },
   {
    "type": "compare",
-   "say": "Over millions of years, life on a heavy Earth would adapt. New animals would become squat, thick-boned, and move close to the ground.",
+   "bg": "glass of water pouring",
    "head": [
-    "EVOLUTIONARY",
-    "*ADAPTATION*"
+    "UNLIMITED",
+    "*DRINKING WATER*"
    ],
    "left": {
-    "name": "1G Earth",
-    "value": "TALL LEGS"
+    "name": "Our Earth",
+    "value": "SALT WATER"
    },
    "right": {
-    "name": "2G Earth",
-    "value": "HEAVY BONES"
+    "name": "Parallel Earth",
+    "value": "DRINKABLE"
    },
-   "label": "body structure",
-   "sublabel": "evolutionary shift",
-   "bg": "desert canyon aerial"
+   "lines": [
+    {
+     "who": "para",
+     "mood": "happy",
+     "text": "On the bright side, human water shortages are completely solved."
+    },
+    {
+     "who": "terra",
+     "mood": "thinking",
+     "text": "That sounds awesome, but at what cost to nature?"
+    }
+   ]
+  },
+  {
+   "type": "counter",
+   "bg": "white salt flats desert",
+   "head": [
+    "VANISHED",
+    "*OCEAN SALT*"
+   ],
+   "from": 0,
+   "to": 50,
+   "prefix": "",
+   "suffix": " Quadrillion Tons",
+   "label": "salt vanished from seas",
+   "lines": [
+    {
+     "who": "para",
+     "mood": "excited",
+     "text": "Fifty quadrillion tons of salt vanished. That salt kept global temperatures stable."
+    },
+    {
+     "who": "terra",
+     "mood": "shocked",
+     "text": "Fifty quadrillion? That is an absurd amount of salt!"
+    }
+   ]
+  },
+  {
+   "type": "wave",
+   "bg": "underwater dark ocean deep",
+   "trend": "down",
+   "label": "-100%",
+   "sublabel": "deep ocean oxygen flow",
+   "head": [
+    "OCEANS BECOME",
+    "*DEAD ZONES*"
+   ],
+   "lines": [
+    {
+     "who": "para",
+     "mood": "scared",
+     "text": "Without currents, oxygen stops circulating deep underwater, creating massive global dead zones."
+    },
+    {
+     "who": "terra",
+     "mood": "scared",
+     "text": "The ocean would turn silent and lifeless!"
+    }
+   ]
   },
   {
    "type": "fact",
-   "say": "Here is the crazy part. Earth's molten core is already under three million times more pressure than the surface right now.",
-   "head": [],
+   "bg": "eiffel tower landmark aerial",
    "kicker": "THE TWIST",
-   "big": "3 Million Atmospheres",
-   "sublabel": "Earth's core is already super compressed",
-   "bg": "lava erupting night"
+   "big": "Ocean salt could cover all land",
+   "sublabel": "100 meters thick over every continent",
+   "head": [
+    "REAL EARTH",
+    "*SALT FACT*"
+   ],
+   "lines": [
+    {
+     "who": "para",
+     "mood": "happy",
+     "text": "Here is a wild real fact! Spreading ocean salt on land creates a layer one hundred meters thick!"
+    },
+    {
+     "who": "terra",
+     "mood": "shocked",
+     "text": "That could bury entire cities whole!"
+    }
+   ]
   },
   {
    "type": "brand",
-   "say": "Imagining strange new worlds isn't just a thought experiment. Welcome to Parallel Earth.",
+   "bg": "",
    "head": [
     "NOT JUST",
     "*A WHAT IF*"
    ],
-   "bg": ""
+   "lines": [
+    {
+     "who": "para",
+     "mood": "happy",
+     "text": "Mind-blowing timelines happen every day right here. Welcome to Parallel Earth!"
+    }
+   ]
   },
   {
    "type": "cta",
-   "say": "Could you survive on a double-gravity world? Follow for more scenarios.",
+   "bg": "",
    "head": [
-    "WOULD YOU",
-    "SURVIVE THIS",
-    "*WORLD?*"
+    "WHICH EARTH",
+    "*WOULD YOU PICK?*"
    ],
    "button": "FOLLOW FOR MORE",
-   "bg": ""
+   "lines": [
+    {
+     "who": "terra",
+     "mood": "excited",
+     "text": "Which Earth would you pick? Follow for more!"
+    }
+   ]
   }
  ],
  "min_seconds": 66
