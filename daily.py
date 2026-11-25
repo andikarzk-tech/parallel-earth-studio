@@ -39,7 +39,22 @@ def log(*a):
 def done_topics():
     if not os.path.exists(DONE_FILE):
         return []
-    return [l.strip() for l in open(DONE_FILE, encoding='utf-8') if l.strip()]
+    return [l.strip() for l in open(DONE_FILE, encoding='utf-8') if l.strip() and not l.startswith('#')]
+
+
+def get_next():
+    if os.path.exists(DONE_FILE):
+        for l in open(DONE_FILE, encoding='utf-8'):
+            if l.startswith('#next '):
+                return l[6:].strip()
+    return ''
+
+
+def set_next(topic):
+    lines = [l for l in open(DONE_FILE, encoding='utf-8')] if os.path.exists(DONE_FILE) else []
+    lines = [l for l in lines if not l.startswith('#next ')]
+    lines.append(f'#next {topic}\n')
+    open(DONE_FILE, 'w', encoding='utf-8').write(''.join(l if l.endswith('\n') else l + '\n' for l in lines))
 
 
 def pick_model():
@@ -177,14 +192,14 @@ def daily_run(cid):
         try:
             style = (ACCENTS[(len(avoid) + i) % len(ACCENTS)], STYLES[(len(avoid) + i) % len(STYLES)], random.choice(VOICES))
             seen = [x.lower() for x in avoid + [m['title'] for m in made]]
-            queued = open(NEXT_FILE).read().strip() if os.path.exists(NEXT_FILE) else ''
+            queued = get_next()
             pool = [x for x in IDEA_POOL if not any(x.split()[1] in s_ and x.split()[-1] in s_ for s_ in seen)] or IDEA_POOL
             nxt = random.choice([x for x in pool if x != queued] or pool)
             cfg = mock_cfg(i) if MOCK else ask_gemini(models, avoid + [m['title'] for m in made], style, queued or None, nxt)
             if not MOCK:
                 nt = str(cfg.get('next_topic') or nxt).strip()
                 nt = re.sub(r'(?i)^what if\s+', '', nt).rstrip('?').strip() or nxt
-                open(NEXT_FILE, 'w').write(nt)
+                set_next(nt)
             log(f'[{i}/{N}] {cfg["title"]}')
             cfg['min_seconds'] = MIN_SECONDS
             cfg['speed'] = max(1.05, float(cfg.get('speed', 1.0) or 1.0))
