@@ -137,6 +137,12 @@ def chat_id():
 def tg_send(cid, path, cfg, idx):
     cap = (f"🎬 Video {idx}/{N}\n\n<b>{cfg.get('yt_title') or cfg.get('title')}</b>\n\n{cfg.get('description', '')}\n\n{cfg.get('hashtags', '')}\n\n"
            "Stock footage: Pixabay\n\n✅ Cek fakta dulu sebelum upload. Centang label konten AI.")
+    if os.path.getsize(path) > 48 * 1024 * 1024:  # Telegram bots accept up to 50 MB
+        small = path[:-4] + '_tg.mp4'
+        subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', path, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '27',
+                        '-c:a', 'copy', '-movflags', '+faststart', small], check=True)
+        cap += '\n(Versi Telegram dikompres; kualitas penuh ada di GitHub → Actions → artifact.)'
+        path = small
     with open(path, 'rb') as f:
         r = requests.post(f'https://api.telegram.org/bot{TG}/sendVideo', timeout=300,
                           data={'chat_id': cid, 'caption': cap[:1024], 'parse_mode': 'HTML', 'supports_streaming': 'true', 'width': 1080, 'height': 1920},
