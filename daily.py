@@ -100,9 +100,14 @@ def try_models(models, user):
 def validate(cfg):
     sc = cfg.get('scenes')
     assert isinstance(sc, list) and 8 <= len(sc) <= 14, 'need 8-14 scenes'
+    def scene_text(s):
+        ls = s.get('lines') or []
+        if ls:
+            return ' '.join(str(l.get('text', '')) for l in ls if isinstance(l, dict))
+        return str(s.get('say', ''))
     for s in sc:
-        assert isinstance(s, dict) and s.get('type') and str(s.get('say', '')).strip(), 'scene missing type/say'
-    words = sum(len(str(s['say']).split()) for s in sc)
+        assert isinstance(s, dict) and s.get('type') and scene_text(s).strip(), 'scene missing type/lines'
+    words = sum(len(scene_text(s).split()) for s in sc)
     assert 150 <= words <= 250, f'narration length {words} words'
     assert cfg.get('title'), 'missing title'
 
@@ -137,7 +142,11 @@ def tg_send(cid, path, cfg, idx):
                           data={'chat_id': cid, 'caption': cap[:1024], 'parse_mode': 'HTML', 'supports_streaming': 'true', 'width': 1080, 'height': 1920},
                           files={'video': (os.path.basename(path), f, 'video/mp4')})
     log('telegram', r.status_code, r.text[:200])
-    script = '\n'.join(f"{i+1}. {s.get('say','')}" for i, s in enumerate(cfg['scenes']))
+    def fmt(s):
+        if s.get('lines'):
+            return ' / '.join(f"{str(l.get('who','')).upper()}: {l.get('text','')}" for l in s['lines'] if isinstance(l, dict))
+        return s.get('say', '')
+    script = '\n'.join(f"{i+1}. {fmt(s)}" for i, s in enumerate(cfg['scenes']))
     requests.post(f'https://api.telegram.org/bot{TG}/sendMessage', timeout=60,
                   data={'chat_id': cid, 'text': ('📝 Naskah (untuk cek fakta):\n' + script)[:4000]})
 
@@ -192,16 +201,21 @@ def compile_run(cid):
     cfgs = [json.load(open(f, encoding='utf-8')) for f in files]
     n = len(cfgs)
     scenes = [{'type': 'title', 'visual': 'twin', 'effect': 'pulse',
-               'say': f'Here are {n} what if scenarios that would change our world forever. Let us begin.',
+               'lines': [{'who': 'terra', 'mood': 'excited', 'text': f'Para, show me {n} worlds where everything went differently!'},
+                         {'who': 'para', 'mood': 'happy', 'text': 'Buckle up, Terra. Let us begin.'}],
                'head': [f'{n} WHAT IFS', 'THAT WOULD', '*CHANGE EVERYTHING*']}]
     for i, c in enumerate(cfgs, 1):
         t = str(c.get('title', 'What if')).strip().rstrip('?')
         if i == 1:
             scenes[0]['chapter'] = f'{i}. {t}?'  # first chapter must start at 0:00 and be 10 s+
-        scenes.append({'type': 'fact', 'chapter': f'{i}. {t}?' if i > 1 else '', 'say': f'Number {i}. {t}?', 'kicker': f'WHAT IF #{i}', 'big': t + '?'})
+        scenes.append({'type': 'fact', 'chapter': f'{i}. {t}?' if i > 1 else '', 'kicker': f'WHAT IF #{i}', 'big': t + '?',
+                       'lines': [{'who': 'para', 'mood': 'excited', 'text': f'Number {i}. {t}?'}]})
         scenes += [x for x in c.get('scenes', []) if x.get('type') not in ('brand', 'cta')]
-    scenes += [{'type': 'brand', 'say': 'Which timeline scared you the most? Welcome to Parallel Earth.', 'head': ['WHICH ONE', '*SCARED YOU?*']},
-               {'type': 'cta', 'say': 'Subscribe for a new parallel world every week.', 'head': ['NEW WORLDS', '*EVERY WEEK*'], 'button': 'SUBSCRIBE'}]
+    scenes += [{'type': 'brand', 'head': ['WHICH ONE', '*SCARED YOU?*'],
+                'lines': [{'who': 'terra', 'mood': 'scared', 'text': 'Which timeline scared you the most?'},
+                          {'who': 'para', 'mood': 'excited', 'text': 'Welcome to Parallel Earth!'}]},
+               {'type': 'cta', 'head': ['NEW WORLDS', '*EVERY WEEK*'], 'button': 'SUBSCRIBE',
+                'lines': [{'who': 'terra', 'mood': 'happy', 'text': 'Subscribe for a new parallel world every week!'}]}]
     ccfg = {'title': f'Compilation {WIB:%Y-%m-%d}', 'voice': 'am_michael', 'accent': random.choice(ACCENTS), 'style': 'space', 'scenes': scenes}
     log(f'Compilation: {n} videos, {len(scenes)} scenes')
     vert = engine.build(ccfg, OUT, workers=2, log=log)

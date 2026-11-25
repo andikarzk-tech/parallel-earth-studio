@@ -541,7 +541,8 @@ def sc_fact(cv, t, D, sc):
 def sc_brand(cv, t, D, sc):
     bg(cv, t)
     k = ease(t / 1.0)
-    twin_mark(cv, 540, 980, 1.9 + 0.25 * k, k)
+    if not S.get('duo'):
+        twin_mark(cv, 540, 980, 1.9 + 0.25 * k, k)
     text(cv, 'WELCOME TO', 540, 1400, 54, MUTED, ease((t - 0.5) / 0.5), 'Bold', spacing=8)
     text(cv, 'PARALLEL', 540, 1520, 130, WHITE, ease((t - 0.7) / 0.5), 'Black', spacing=6)
     text(cv, 'EARTH', 540, 1640, 110, S['accent'], ease((t - 0.85) / 0.5), 'Black', spacing=24)
@@ -552,7 +553,8 @@ def sc_brand(cv, t, D, sc):
 def sc_cta(cv, t, D, sc):
     skia = S['skia']
     bg(cv, t)
-    twin_mark(cv, 540, 700, 1.0, ease(t / 0.6))
+    if not S.get('duo'):
+        twin_mark(cv, 540, 700, 1.0, ease(t / 0.6))
     head = sc.get('head') or ['WOULD YOU', 'SURVIVE IN THIS', '*TIMELINE?*']
     headline(cv, head, t - 0.2, 1020, 100)
     pulse = 1 + 0.04 * math.sin(t * 6)
@@ -570,6 +572,156 @@ SCENES = {'title': sc_title, 'globe': sc_globe, 'counter': sc_counter, 'bars': s
           'compare': sc_compare, 'distance': sc_distance, 'wave': sc_wave, 'timeline': sc_timeline,
           'fact': sc_fact, 'brand': sc_brand, 'cta': sc_cta}
 
+
+
+# ------------------------------------------------------------ duo mascots: Terra (our Earth) & Para (parallel Earth)
+CHAR = {
+    'terra': {'light': 0xFF7CCBFF, 'dark': 0xFF1C5FC4, 'patch': 0xFF52C98E, 'name': 'TERRA', 'hi': 0xFF7CD8FF},
+    'para': {'light': 0xFFFFC98A, 'dark': 0xFFD24E16, 'patch': 0xFFB8350F, 'name': 'PARA', 'hi': 0xFFFFB862},
+}
+INK = 0xFF0A0F24
+
+
+def _arc(cv, cx, cy, w, h, start, sweep, color, width):
+    skia = S['skia']
+    cv.drawArc(skia.Rect(cx - w, cy - h, cx + w, cy + h), start, sweep, False, paint(color, 1, stroke=width))
+
+
+def mascot(cv, who, cx, cy, r, mood='happy', mouth=0.0, t=0.0, look=0.0, talking=False, a=1.0, wave=0.0):
+    skia = S['skia']
+    c = CHAR.get(who, CHAR['terra'])
+    if a <= 0:
+        return
+    breathe = 1 + 0.018 * math.sin(t * 2.2 + (0 if who == 'terra' else 1.7))
+    bob = -abs(math.sin(t * 9)) * 7 * mouth if talking else 0
+    cv.save()
+    cv.translate(cx, cy + bob); cv.scale(breathe, 1 / breathe); cv.translate(-cx, -cy)
+    # little arms (wave on brand/cta)
+    arm = paint(c['dark'], a, stroke=r * 0.1)
+    for side in (-1, 1):
+        sx = cx + side * r * 0.92
+        ang = (0.6 + 0.5 * math.sin(t * 10)) if (wave and side == (1 if who == 'terra' else -1)) else 0.25
+        ex, ey = sx + side * r * 0.35 * math.cos(ang), cy + r * 0.15 - r * 0.45 * math.sin(ang)
+        cv.drawLine(sx, cy + r * 0.2, ex, ey, arm)
+        cv.drawCircle(ex, ey, r * 0.11, paint(c['light'], a))
+    # body
+    sh = skia.GradientShader.MakeRadial(skia.Point(cx - r * 0.35, cy - r * 0.4), r * 1.6, [c['light'], c['dark']])
+    p = skia.Paint(AntiAlias=True, Shader=sh); p.setAlphaf(a)
+    cv.drawCircle(cx, cy, r, p)
+    cv.save()
+    pth = skia.Path(); pth.addCircle(cx, cy, r); cv.clipPath(pth, doAntiAlias=True)
+    for (dx, dy, rx, ry) in [(-0.55, 0.45, 0.42, 0.28), (0.62, -0.55, 0.35, 0.22), (0.5, 0.7, 0.3, 0.2), (-0.75, -0.35, 0.22, 0.3)]:
+        cv.drawOval(skia.Rect(cx + (dx - rx) * r, cy + (dy - ry) * r, cx + (dx + rx) * r, cy + (dy + ry) * r), paint(c['patch'], 0.55 * a))
+    cv.restore()
+    cv.drawCircle(cx, cy, r, paint(INK, a, stroke=r * 0.07))
+    # cheeks
+    if mood in ('happy', 'excited'):
+        for side in (-1, 1):
+            cv.drawOval(skia.Rect(cx + side * r * 0.55 - r * 0.15, cy + r * 0.12, cx + side * r * 0.55 + r * 0.15, cy + r * 0.26), paint(0xFFFF7FA0, 0.55 * a))
+    # eyes
+    blink = ((t + (0.0 if who == 'terra' else 1.3)) % 3.4) < 0.12
+    ey = cy - r * 0.12
+    erx, ery = r * 0.2, r * 0.25
+    if mood == 'shocked':
+        erx, ery = r * 0.23, r * 0.29
+    pr = r * (0.06 if mood in ('shocked', 'scared') else 0.105)
+    for side in (-1, 1):
+        ex = cx + side * r * 0.33
+        if blink:
+            cv.drawLine(ex - erx, ey, ex + erx, ey, paint(INK, a, stroke=r * 0.06))
+            continue
+        cv.drawOval(skia.Rect(ex - erx, ey - ery, ex + erx, ey + ery), paint(WHITE, a))
+        cv.drawOval(skia.Rect(ex - erx, ey - ery, ex + erx, ey + ery), paint(INK, a, stroke=r * 0.04))
+        lx = look * erx * 0.45
+        ly = (-ery * 0.35) if mood == 'thinking' else (ery * 0.1)
+        cv.drawCircle(ex + lx, ey + ly, pr, paint(INK, a))
+        cv.drawCircle(ex + lx - pr * 0.35, ey + ly - pr * 0.4, pr * 0.35, paint(WHITE, a))
+    # brows
+    bw = r * 0.06
+    for side in (-1, 1):
+        bx = cx + side * r * 0.33
+        by = ey - r * 0.36
+        if mood == 'shocked':
+            _arc(cv, bx, by - r * 0.08, r * 0.17, r * 0.1, 200, 140, INK, bw)
+        elif mood == 'scared':
+            cv.drawLine(bx - side * r * 0.16, by - r * 0.12, bx + side * r * 0.14, by + r * 0.02, paint(INK, a, stroke=bw))
+        elif mood == 'sad':
+            cv.drawLine(bx - side * r * 0.16, by - r * 0.06, bx + side * r * 0.14, by + r * 0.04, paint(INK, a, stroke=bw))
+        elif mood == 'thinking':
+            off = -r * 0.1 if side == 1 else 0
+            cv.drawLine(bx - r * 0.15, by + off, bx + r * 0.15, by + off - r * 0.03, paint(INK, a, stroke=bw))
+        else:
+            _arc(cv, bx, by + r * 0.02, r * 0.15, r * 0.08, 210, 120, INK, bw)
+    # mouth
+    my = cy + r * 0.38
+    open_ = clamp(mouth)
+    if talking and open_ > 0.05 or mood == 'shocked':
+        h = r * (0.07 + 0.26 * open_) if talking else r * 0.16
+        w = r * (0.2 + 0.08 * open_) if mood != 'shocked' else r * 0.14
+        cv.drawOval(skia.Rect(cx - w, my - h, cx + w, my + h), paint(0xFF3A0D18, a))
+        if h > r * 0.12:
+            cv.save()
+            mp = skia.Path(); mp.addOval(skia.Rect(cx - w, my - h, cx + w, my + h)); cv.clipPath(mp, doAntiAlias=True)
+            cv.drawOval(skia.Rect(cx - w * 0.7, my + h * 0.2, cx + w * 0.7, my + h * 1.4), paint(0xFFFF6F8A, a))
+            cv.restore()
+        cv.drawOval(skia.Rect(cx - w, my - h, cx + w, my + h), paint(INK, a, stroke=r * 0.045))
+    elif mood == 'scared':
+        pth = skia.Path(); pth.moveTo(cx - r * 0.22, my)
+        for i in range(1, 7):
+            pth.lineTo(cx - r * 0.22 + i * r * 0.073, my + (r * 0.05 if i % 2 else -r * 0.05))
+        cv.drawPath(pth, paint(INK, a, stroke=r * 0.05))
+        cv.drawOval(skia.Rect(cx + r * 0.62, cy - r * 0.55, cx + r * 0.76, cy - r * 0.33), paint(0xFF9FE3FF, 0.9 * a))
+    elif mood == 'sad':
+        _arc(cv, cx, my + r * 0.12, r * 0.2, r * 0.12, 200, 140, INK, r * 0.055)
+    elif mood == 'excited':
+        grin = skia.Path()
+        grin.addArc(skia.Rect(cx - r * 0.28, my - r * 0.22, cx + r * 0.28, my + r * 0.22), 0, 180)
+        grin.close()
+        cv.drawPath(grin, paint(0xFF3A0D18, a))
+        cv.save(); cv.clipPath(grin, doAntiAlias=True)
+        cv.drawOval(skia.Rect(cx - r * 0.18, my + r * 0.08, cx + r * 0.18, my + r * 0.34), paint(0xFFFF6F8A, a))
+        cv.restore()
+        cv.drawPath(grin, paint(INK, a, stroke=r * 0.045))
+    elif mood == 'thinking':
+        cv.drawLine(cx - r * 0.12, my + r * 0.02, cx + r * 0.16, my - r * 0.04, paint(INK, a, stroke=r * 0.05))
+    else:
+        _arc(cv, cx, my - r * 0.08, r * 0.24, r * 0.16, 20, 140, INK, r * 0.055)
+    cv.restore()
+
+
+def mascot_layer(cv, t, sc):
+    """Draw Terra & Para over every scene, mouths driven by the voice track."""
+    if not S.get('duo'):
+        return
+    kind = str(sc.get('type', '')).lower()
+    tl = sc.get('_tl') or []
+    env = sc.get('_env') or []
+    fi = int(t * FPS)
+    amp = env[fi] if 0 <= fi < len(env) else 0.0
+    speaker, mood_of = None, {}
+    for (st, en, who, mood) in tl:
+        if st <= t < en + 0.05:
+            speaker = who
+        if st <= t + 0.3:
+            mood_of[who] = mood
+    default = str(sc.get('mood', 'happy'))
+    pos = {'terra': (150, 1470, 100), 'para': (930, 1470, 100)}
+    wave = 0.0
+    if kind == 'brand':
+        pos = {'terra': (330, 1060, 150), 'para': (750, 1060, 150)}; wave = 1.0
+    elif kind == 'cta':
+        pos = {'terra': (330, 720, 115), 'para': (750, 720, 115)}; wave = 1.0
+    for who in ('terra', 'para'):
+        x, y, r = pos[who]
+        talking = speaker == who
+        if talking:
+            r *= 1.08
+        look = 0.0 if talking else (1.0 if who == 'terra' else -1.0) if speaker else (0.6 if who == 'terra' else -0.6)
+        pop = ease(t / 0.35) if kind == 'title' else 1.0
+        mascot(cv, who, x, y + (1 - pop) * 200, r, mood_of.get(who, default), amp if talking else 0.0, t, look, talking, 1.0, wave)
+        if kind not in ('brand', 'cta'):
+            nm = CHAR[who]['name']
+            text(cv, nm, x, y + r + 44, 28, CHAR[who]['hi'], 0.9, 'Black', spacing=3)
 
 # ------------------------------------------------------------ captions + camera
 NO_CAPTION = ('title', 'words', 'brand', 'cta')
@@ -603,12 +755,16 @@ def captions(cv, t, sc):
     skia = S['skia']
     if str(sc.get('type', '')).lower() in NO_CAPTION or not sc.get('_speech'):
         return
-    st, en = sc['_speech']
-    groups = chunks(word_times(sc.get('say', ''), st, en))
-    cur = None
-    for g in groups:
+    tl = sc.get('_tl') or [(sc['_speech'][0], sc['_speech'][1], 'narrator', '')]
+    lines = sc.get('_texts') or [sc.get('say', '')]
+    groups, who_of = [], []
+    for (st, en, who, _), txt in zip(tl, lines):
+        for g in chunks(word_times(txt, st, en)):
+            groups.append(g); who_of.append(who)
+    cur, cur_who = None, None
+    for g, w_ in zip(groups, who_of):
         if g[0][1] <= t < g[-1][2] + 0.05:
-            cur = g; break
+            cur, cur_who = g, w_; break
     if cur is None:
         return
     words = [re.sub(r'[^\w%°+\-.\'’$,]', '', w).strip('.,;:') .upper() for w, _, _ in cur]
@@ -617,7 +773,8 @@ def captions(cv, t, sc):
     f = font(size, 'Black')
     sp = f.measureText(' ')
     total = sum(f.measureText(w) for w in words) + sp * (len(words) - 1)
-    while total > 980 and size > 52:
+    maxw = 600 if S.get('duo') else 980
+    while total > maxw and size > 46:
         size -= 6; f = font(size, 'Black'); sp = f.measureText(' ')
         total = sum(f.measureText(w) for w in words) + sp * (len(words) - 1)
     pop = ease((t - cur[0][1]) / 0.12)
@@ -629,7 +786,8 @@ def captions(cv, t, sc):
     for w, (_, a, b) in zip(words, cur):
         active = a <= t < b + 0.05
         cv.drawString(w, x, y + size * 0.35, f, stroke)
-        cv.drawString(w, x, y + size * 0.35, f, paint(CAPTION_HI if active else WHITE))
+        hi = CHAR[cur_who]['hi'] if cur_who in CHAR else CAPTION_HI
+        cv.drawString(w, x, y + size * 0.35, f, paint(hi if active else WHITE))
         x += f.measureText(w) + sp
     cv.restore()
 
@@ -667,6 +825,7 @@ def setup_state(cfg):
     S['tf'] = {w: skia.Typeface.MakeFromFile(os.path.join(FONT_DIR, f'InterDisplay-{w}.otf')) for w in ['Black', 'Bold', 'SemiBold']}
     S['accent'] = ACCENTS.get(str(cfg.get('accent', 'orange')).lower(), ACCENTS['orange'])
     S['style'] = str(cfg.get('style', 'space')).lower()
+    S['duo'] = any(isinstance(x, dict) and x.get('lines') for x in cfg.get('scenes', []))
     rnd = random.Random(int(hashlib.md5(str(cfg.get('title', '')).encode()).hexdigest()[:6], 16))
     S['stars'] = [(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(1.2, 3.4), rnd.uniform(0, 6.28), rnd.uniform(0.3, 1.5)) for _ in range(140)]
 
@@ -693,6 +852,7 @@ def render_scene(args):
         with surf as cv:
             cv.clear(BG)
             cv.save(); camera(cv, t, D, kind); fn(cv, t, D, sc); cv.restore()
+            mascot_layer(cv, t, sc)
             captions(cv, t, sc)
         pr.stdin.write(surf.makeImageSnapshot().toarray(colorType=skia.kRGBA_8888_ColorType).tobytes())
     pr.stdin.close()
@@ -716,6 +876,7 @@ def still(cfg, i, D, t, path):
     with surf as cv:
         cv.clear(BG)
         cv.save(); camera(cv, t, D, str(sc.get('type', ''))); fn(cv, t, D, sc); cv.restore()
+        mascot_layer(cv, t, sc)
         captions(cv, t, sc)
     surf.makeImageSnapshot().save(path, skia.kPNG)
 
@@ -858,17 +1019,44 @@ def build(cfg, out_dir=None, workers=2, log=print):
     speed = float(cfg.get('speed', 1.0) or 1.0)
     min_s = float(cfg.get('min_seconds', 0) or 0)
 
+    vmap = {'terra': 'am_puck', 'para': 'af_bella'}
+    vmap.update(cfg.get('voices') or {})
+
+    def tts(txt, v, spd):
+        lg = 'en-gb' if v.startswith('b') else 'en-us'
+        a, _ = k.create(txt, voice=v, speed=spd, lang=lg)
+        return trim_silence(np.asarray(a, dtype=np.float32))
+
     def voice_pass(spd):
         sg, du = [], []
         for sc in scenes:
-            say = str(sc.get('say', '') or '').strip()
-            a = np.zeros(int(SR * 1.2), dtype=np.float32)
-            if say:
-                a, _ = k.create(say, voice=voice, speed=spd, lang=lang)
-                a = trim_silence(np.asarray(a, dtype=np.float32))
-            sc['_speech'] = [0.15, 0.15 + len(a) / SR]
-            a = np.concatenate([np.zeros(int(SR * 0.15)), a, np.zeros(int(SR * 0.35))]).astype(np.float32)
-            sg.append(a); du.append(len(a) / SR)
+            lines = [l for l in (sc.get('lines') or []) if isinstance(l, dict) and str(l.get('text', '')).strip()]
+            if lines:
+                parts, tl, texts, c = [np.zeros(int(SR * 0.15), dtype=np.float32)], [], [], 0.15
+                for j, l in enumerate(lines):
+                    who = 'para' if str(l.get('who', '')).lower().startswith('p') else 'terra'
+                    a = tts(str(l['text']), vmap[who], spd)
+                    tl.append((c, c + len(a) / SR, who, str(l.get('mood', sc.get('mood', 'happy'))).lower()))
+                    texts.append(str(l['text']))
+                    parts.append(a); c += len(a) / SR
+                    if j < len(lines) - 1:
+                        parts.append(np.zeros(int(SR * 0.22), dtype=np.float32)); c += 0.22
+                parts.append(np.zeros(int(SR * 0.35), dtype=np.float32))
+                a = np.concatenate(parts)
+                sc['_tl'], sc['_texts'] = tl, texts
+                sc['_speech'] = [tl[0][0], tl[-1][1]]
+                sc['say'] = ' '.join(texts)
+            else:
+                say = str(sc.get('say', '') or '').strip()
+                a = tts(say, voice, spd) if say else np.zeros(int(SR * 1.2), dtype=np.float32)
+                sc['_speech'] = [0.15, 0.15 + len(a) / SR]
+                a = np.concatenate([np.zeros(int(SR * 0.15)), a, np.zeros(int(SR * 0.35))]).astype(np.float32)
+            hop = SR // FPS
+            n = len(a) // hop + 1
+            rms = np.array([np.sqrt(np.mean(a[i * hop:(i + 1) * hop] ** 2)) if i * hop < len(a) else 0 for i in range(n)])
+            ref = np.percentile(rms[rms > 0], 90) if np.any(rms > 0) else 1
+            sc['_env'] = [round(float(min(1.0, v / (ref + 1e-9))), 2) for v in rms]
+            sg.append(a.astype(np.float32)); du.append(len(a) / SR)
         return sg, du
     segs, durs = voice_pass(speed)
     if min_s and sum(durs) < min_s - 2:
