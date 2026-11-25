@@ -1,202 +1,206 @@
 {
- "title": "What If Oceans Had No Salt?",
- "yt_title": "What If All Oceans Turned Into Freshwater? #shorts",
- "description": "Imagine if ocean salt vanished overnight. Explore how marine life, weather, and freezing waters would change Earth forever.",
- "hashtags": "#whatif #science #earth #ocean #parallelearth",
+ "title": "What If Earth Stopped Spinning?",
+ "yt_title": "What If Earth Stopped Spinning? 🌍 #shorts",
+ "description": "Imagine what would happen if Earth suddenly halted its rotation. Para explains how days, oceans, and atmospheres change on a non-spinning planet!",
+ "hashtags": "#WhatIf #ParallelEarth #SpaceScience #EarthRotation #ScienceFacts",
+ "next_topic": "What if it rained every day everywhere?",
  "speed": 1.05,
- "accent": "yellow",
- "style": "dust",
+ "accent": "orange",
+ "style": "space",
  "voice": "bm_fable",
  "scenes": [
   {
    "type": "title",
-   "bg": "ocean waves beach coast",
-   "visual": "earth",
-   "effect": "pulse",
+   "bg": "earth planet spinning space",
    "head": [
-    "WHAT IF OCEANS",
-    "*LOST ALL SALT?*"
+    "WHAT IF EARTH",
+    "*STOPPED SPINNING?*"
+   ],
+   "visual": "earth",
+   "effect": "stop",
+   "lines": [
+    {
+     "who": "terra",
+     "mood": "shocked",
+     "text": "What if Earth suddenly stopped spinning right now?"
+    },
+    {
+     "who": "para",
+     "mood": "happy",
+     "text": "I live in that world, Blue! Let me show you."
+    }
+   ]
+  },
+  {
+   "type": "split",
+   "transition": "portal",
+   "head": [
+    "ONE DAY",
+    "*ONE YEAR*"
+   ],
+   "left_name": "Our Earth",
+   "left_value": "24 Hours",
+   "right_name": "Para's Earth",
+   "right_value": "365 Days",
+   "bg_left": "sunrise city timelapse",
+   "bg_right": "frozen dark arctic tundra",
+   "lines": [
+    {
+     "who": "terra",
+     "mood": "thinking",
+     "text": "If your planet stopped spinning, how long is one day?"
+    },
+    {
+     "who": "para",
+     "mood": "excited",
+     "text": "One day lasts a whole year! Six months sun, six months dark."
+    }
+   ]
+  },
+  {
+   "type": "counter",
+   "bg": "",
+   "head": [
+    "OCEANS",
+    "*MIGRATE*"
+   ],
+   "from": 0,
+   "to": 1670,
+   "decimals": 0,
+   "prefix": "",
+   "suffix": " km/h",
+   "label": "water shift speed",
+   "lines": [
+    {
+     "who": "terra",
+     "mood": "scared",
+     "text": "Six months of night? My bedtime routine is ruined!"
+    },
+    {
+     "who": "para",
+     "mood": "happy",
+     "text": "Oceans instantly flood toward both poles at high speed!"
+    }
+   ]
+  },
+  {
+   "type": "words",
+   "bg": "dry canyon desert land",
+   "head": [
+    "EQUATOR",
+    "*DRAINS DRY*"
+   ],
+   "words": [
+    "OCEANS DRAIN",
+    "MEGA CONTINENT",
+    "POLAR SEAS"
    ],
    "lines": [
     {
      "who": "terra",
      "mood": "shocked",
-     "text": "What if all ocean salt suddenly vanished into freshwater?"
+     "text": "Does all water leave the equator completely?"
     },
     {
      "who": "para",
-     "mood": "excited",
-     "text": "I drink from the Atlantic daily! Check out my world."
+     "mood": "thinking",
+     "text": "Yes! One giant ring continent forms, splitting two polar oceans."
     }
    ]
   },
   {
    "type": "globe",
    "bg": "",
+   "head": [
+    "SUPERSTORM",
+    "*WINDS*"
+   ],
    "body": "earth",
    "effect": "wobble",
-   "label": "FRESHWATER EARTH",
-   "sublabel": "97% marine species in danger",
-   "head": [
-    "MASSIVE MARINE",
-    "*COLLAPSE*"
-   ],
+   "label": "ATMOSPHERE",
+   "sublabel": "extreme winds",
+   "action": "sweat",
    "lines": [
-    {
-     "who": "para",
-     "mood": "thinking",
-     "text": "Without salt, ninety-seven percent of marine life like corals and turtles would collapse instantly."
-    },
-    {
-     "who": "terra",
-     "mood": "sad",
-     "text": "Sea creatures cannot survive in freshwater!"
-    }
-   ]
-  },
-  {
-   "type": "words",
-   "bg": "frozen ocean winter ice",
-   "head": [
-    "OCEANS FREEZE",
-    "*SOLID*"
-   ],
-   "words": [
-    "FROZEN OCEANS",
-    "EXTREME WINTERS",
-    "COLLAPSED WEATHER"
-   ],
-   "lines": [
-    {
-     "who": "para",
-     "mood": "thinking",
-     "text": "Freshwater freezes fast! Huge parts of northern oceans freeze solid every winter."
-    },
     {
      "who": "terra",
      "mood": "scared",
-     "text": "That means instant ice ages for half the planet!"
-    }
-   ]
-  },
-  {
-   "type": "bars",
-   "bg": "stormy ocean waves",
-   "trend": "down",
-   "label": "ocean heat transport",
-   "head": [
-    "CLIMATE SYSTEM",
-    "*CRASHES*"
-   ],
-   "lines": [
-    {
-     "who": "para",
-     "mood": "thinking",
-     "text": "Global weather breaks down. Ocean currents depend on salt density to pump planetary heat."
+     "text": "What about atmosphere? Can anyone even breathe?"
     },
-    {
-     "who": "terra",
-     "mood": "shocked",
-     "text": "Without currents, Europe turns into a giant ice cube!"
-    }
-   ]
-  },
-  {
-   "type": "compare",
-   "bg": "glass of water pouring",
-   "head": [
-    "UNLIMITED",
-    "*DRINKING WATER*"
-   ],
-   "left": {
-    "name": "Our Earth",
-    "value": "SALT WATER"
-   },
-   "right": {
-    "name": "Parallel Earth",
-    "value": "DRINKABLE"
-   },
-   "lines": [
-    {
-     "who": "para",
-     "mood": "happy",
-     "text": "On the bright side, human water shortages are completely solved."
-    },
-    {
-     "who": "terra",
-     "mood": "thinking",
-     "text": "That sounds awesome, but at what cost to nature?"
-    }
-   ]
-  },
-  {
-   "type": "counter",
-   "bg": "white salt flats desert",
-   "head": [
-    "VANISHED",
-    "*OCEAN SALT*"
-   ],
-   "from": 0,
-   "to": 50,
-   "prefix": "",
-   "suffix": " Quadrillion Tons",
-   "label": "salt vanished from seas",
-   "lines": [
     {
      "who": "para",
      "mood": "excited",
-     "text": "Fifty quadrillion tons of salt vanished. That salt kept global temperatures stable."
-    },
-    {
-     "who": "terra",
-     "mood": "shocked",
-     "text": "Fifty quadrillion? That is an absurd amount of salt!"
+     "text": "Violent hurricane winds blast continuously across the sunlit border."
     }
    ]
   },
   {
    "type": "wave",
-   "bg": "underwater dark ocean deep",
-   "trend": "down",
-   "label": "-100%",
-   "sublabel": "deep ocean oxygen flow",
+   "bg": "sun cosmic radiation atmosphere",
    "head": [
-    "OCEANS BECOME",
-    "*DEAD ZONES*"
+    "MAGNETIC SHIELD",
+    "*COLLAPSES*"
    ],
+   "trend": "down",
+   "label": "-90%",
+   "sublabel": "magnetic shield",
    "lines": [
     {
-     "who": "para",
-     "mood": "scared",
-     "text": "Without currents, oxygen stops circulating deep underwater, creating massive global dead zones."
+     "who": "terra",
+     "mood": "thinking",
+     "text": "Does your Earth protect you from space radiation?"
     },
     {
+     "who": "para",
+     "mood": "thinking",
+     "text": "Without spin, our magnetic field collapses, letting cosmic rays in."
+    }
+   ]
+  },
+  {
+   "type": "distance",
+   "bg": "space view moon earth",
+   "head": [
+    "THE MOON",
+    "*CREEPS IN*"
+   ],
+   "a": "earth",
+   "b": "moon",
+   "motion": "closer",
+   "label": "MOON ORBIT",
+   "sublabel": "moves closer",
+   "lines": [
+    {
      "who": "terra",
-     "mood": "scared",
-     "text": "The ocean would turn silent and lifeless!"
+     "mood": "thinking",
+     "text": "What happens to the Moon when spin stops?"
+    },
+    {
+     "who": "para",
+     "mood": "happy",
+     "text": "Without Earth's spin boost, the Moon slowly creeps closer!"
     }
    ]
   },
   {
    "type": "fact",
-   "bg": "eiffel tower landmark aerial",
-   "kicker": "THE TWIST",
-   "big": "Ocean salt could cover all land",
-   "sublabel": "100 meters thick over every continent",
+   "bg": "earth rotating space view",
    "head": [
     "REAL EARTH",
-    "*SALT FACT*"
+    "*SLOWING DOWN*"
    ],
+   "kicker": "THE TWIST",
+   "big": "Earth is slowing down",
+   "sublabel": "+2.3 ms per century",
    "lines": [
+    {
+     "who": "terra",
+     "mood": "happy",
+     "text": "Is our Earth's rotation constant in real life?"
+    },
     {
      "who": "para",
      "mood": "happy",
-     "text": "Here is a wild real fact! Spreading ocean salt on land creates a layer one hundred meters thick!"
-    },
-    {
-     "who": "terra",
-     "mood": "shocked",
-     "text": "That could bury entire cities whole!"
+     "text": "The twist is, Moon tides slow Earth by 2.3 milliseconds every century!"
     }
    ]
   },
@@ -204,14 +208,19 @@
    "type": "brand",
    "bg": "",
    "head": [
-    "NOT JUST",
-    "*A WHAT IF*"
+    "NEXT TIME",
+    "*RAIN EVERYWHERE*"
    ],
    "lines": [
     {
+     "who": "terra",
+     "mood": "excited",
+     "text": "That is wild! What timeline do we visit next?"
+    },
+    {
      "who": "para",
      "mood": "happy",
-     "text": "Mind-blowing timelines happen every day right here. Welcome to Parallel Earth!"
+     "text": "Next time, Blue, I will show you a world where it rains every day everywhere! Welcome to Parallel Earth!"
     }
    ]
   },
@@ -222,12 +231,18 @@
     "WHICH EARTH",
     "*WOULD YOU PICK?*"
    ],
-   "button": "FOLLOW FOR MORE",
+   "a": "Endless daylight",
+   "b": "Endless night",
    "lines": [
     {
      "who": "terra",
-     "mood": "excited",
-     "text": "Which Earth would you pick? Follow for more!"
+     "mood": "thinking",
+     "text": "Which extreme side of Para's Earth would you pick?"
+    },
+    {
+     "who": "para",
+     "mood": "happy",
+     "text": "Would you pick A, endless daylight, or B, endless night? Comment below!"
     }
    ]
   }
