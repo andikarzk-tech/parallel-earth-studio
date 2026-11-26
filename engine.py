@@ -1084,126 +1084,134 @@ def mascot(cv, who, cx, cy, r, mood='happy', mouth=0.0, t=0.0, look=0.0, talking
         dy -= abs(math.sin(walk)) * r * 0.08
         rot += math.sin(walk) * 4
     rot += spin
+    if (S.get('spr') or {}).get(who):
+        sh = skia.Paint(AntiAlias=True, Color=0xFF000000); sh.setAlphaf(0.32 * a * max(0.35, 1 - abs(dy) / (r * 0.8)))
+        sh.setMaskFilter(skia.MaskFilter.MakeBlur(skia.kNormal_BlurStyle, r * 0.08))
+        cv.drawOval(skia.Rect(cx - r * 0.78, cy + r * 1.55, cx + r * 0.78, cy + r * 1.78), sh)
     cv.save()
     cv.translate(cx + dx, cy + bob + dy); cv.rotate(rot); cv.scale(breathe, sy / breathe); cv.translate(-cx, -cy)
     dark, light = c['dark'], c['light']
-    # legs + shoes (behind the body)
-    for side in (-1, 1):
-        hx, hy = cx + side * r * 0.34, cy + r * 0.8
-        if walk is not None:
-            ph = walk + (0 if side < 0 else math.pi)
-            fx, fy = hx + math.sin(ph) * r * 0.32, cy + r * 1.42 - max(0.0, math.cos(ph)) * r * 0.16
-        else:
-            fx, fy = hx + side * r * 0.06, cy + r * (1.42 - 0.3 * tuck)
-        _limb(cv, hx, hy, fx, fy, r * 0.34, r * 0.34, -side, dark, r * 0.21, a)
-        sw_ = r * 0.25
-        shoe = skia.Rect(fx - sw_ + side * r * 0.09, fy - r * 0.09, fx + sw_ + side * r * 0.09, fy + r * 0.13)
-        cv.drawRRect(skia.RRect.MakeRectXY(shoe, r * 0.11, r * 0.11), paint(WHITE, a))
-        cv.drawRect(skia.Rect(shoe.left(), fy + r * 0.06, shoe.right(), fy + r * 0.13), paint(c['hi'], a))
-        cv.drawRRect(skia.RRect.MakeRectXY(shoe, r * 0.11, r * 0.11), paint(INK, a, stroke=r * 0.045))
-    # body
-    sh = skia.GradientShader.MakeRadial(skia.Point(cx - r * 0.35, cy - r * 0.4), r * 1.6, [light, dark])
-    p = skia.Paint(AntiAlias=True, Shader=sh); p.setAlphaf(a)
-    cv.drawCircle(cx, cy, r, p)
-    cv.save()
-    pth = skia.Path(); pth.addCircle(cx, cy, r); cv.clipPath(pth, doAntiAlias=True)
-    for (ddx, ddy, rx, ry) in [(-0.55, 0.45, 0.42, 0.28), (0.62, -0.55, 0.35, 0.22), (0.5, 0.7, 0.3, 0.2), (-0.75, -0.35, 0.22, 0.3)]:
-        cv.drawOval(skia.Rect(cx + (ddx - rx) * r, cy + (ddy - ry) * r, cx + (ddx + rx) * r, cy + (ddy + ry) * r), paint(c['patch'], 0.55 * a))
-    cv.restore()
-    cv.drawCircle(cx, cy, r, paint(INK, a, stroke=r * 0.07))
-    # cheeks
-    if mood in ('happy', 'excited'):
-        for side in (-1, 1):
-            cv.drawOval(skia.Rect(cx + side * r * 0.55 - r * 0.15, cy + r * 0.12, cx + side * r * 0.55 + r * 0.15, cy + r * 0.26), paint(0xFFFF7FA0, 0.55 * a))
-    # eyes
-    blink = ((t + (0.0 if who == 'terra' else 1.3)) % 3.4) < 0.12
-    ey = cy - r * 0.12
-    erx, ery = r * 0.2, r * 0.25
-    if mood == 'shocked':
-        erx, ery = r * 0.23, r * 0.29
-    pr = r * (0.06 if mood in ('shocked', 'scared') else 0.105)
-    for side in (-1, 1):
-        ex = cx + side * r * 0.33
-        if blink:
-            cv.drawLine(ex - erx, ey, ex + erx, ey, paint(INK, a, stroke=r * 0.06))
-            continue
-        cv.drawOval(skia.Rect(ex - erx, ey - ery, ex + erx, ey + ery), paint(WHITE, a))
-        cv.drawOval(skia.Rect(ex - erx, ey - ery, ex + erx, ey + ery), paint(INK, a, stroke=r * 0.04))
-        lx = look * erx * 0.45
-        ly = (-ery * 0.35) if mood == 'thinking' else (ery * 0.1)
-        cv.drawCircle(ex + lx, ey + ly, pr, paint(INK, a))
-        cv.drawCircle(ex + lx - pr * 0.35, ey + ly - pr * 0.4, pr * 0.35, paint(WHITE, a))
-    # brows
-    bw = r * 0.06
-    for side in (-1, 1):
-        bx = cx + side * r * 0.33
-        by = ey - r * 0.36
-        if mood == 'shocked':
-            _arc(cv, bx, by - r * 0.08, r * 0.17, r * 0.1, 200, 140, INK, bw)
-        elif mood == 'scared':
-            cv.drawLine(bx - side * r * 0.16, by - r * 0.12, bx + side * r * 0.14, by + r * 0.02, paint(INK, a, stroke=bw))
-        elif mood == 'sad':
-            cv.drawLine(bx - side * r * 0.16, by - r * 0.06, bx + side * r * 0.14, by + r * 0.04, paint(INK, a, stroke=bw))
-        elif mood == 'thinking':
-            off = -r * 0.1 if side == 1 else 0
-            cv.drawLine(bx - r * 0.15, by + off, bx + r * 0.15, by + off - r * 0.03, paint(INK, a, stroke=bw))
-        else:
-            _arc(cv, bx, by + r * 0.02, r * 0.15, r * 0.08, 210, 120, INK, bw)
-    # mouth
-    my = cy + r * 0.38
-    open_ = clamp(mouth)
-    if talking and open_ > 0.05 or mood == 'shocked':
-        h = r * (0.07 + 0.26 * open_) if talking else r * 0.16
-        w = r * (0.2 + 0.08 * open_) if mood != 'shocked' else r * 0.14
-        cv.drawOval(skia.Rect(cx - w, my - h, cx + w, my + h), paint(0xFF3A0D18, a))
-        if h > r * 0.12:
-            cv.save()
-            mp = skia.Path(); mp.addOval(skia.Rect(cx - w, my - h, cx + w, my + h)); cv.clipPath(mp, doAntiAlias=True)
-            cv.drawOval(skia.Rect(cx - w * 0.7, my + h * 0.2, cx + w * 0.7, my + h * 1.4), paint(0xFFFF6F8A, a))
-            cv.restore()
-        cv.drawOval(skia.Rect(cx - w, my - h, cx + w, my + h), paint(INK, a, stroke=r * 0.045))
-    elif mood == 'scared':
-        pth = skia.Path(); pth.moveTo(cx - r * 0.22, my)
-        for i in range(1, 7):
-            pth.lineTo(cx - r * 0.22 + i * r * 0.073, my + (r * 0.05 if i % 2 else -r * 0.05))
-        cv.drawPath(pth, paint(INK, a, stroke=r * 0.05))
-        cv.drawOval(skia.Rect(cx + r * 0.62, cy - r * 0.55, cx + r * 0.76, cy - r * 0.33), paint(0xFF9FE3FF, 0.9 * a))
-    elif mood == 'sad':
-        _arc(cv, cx, my + r * 0.12, r * 0.2, r * 0.12, 200, 140, INK, r * 0.055)
-    elif mood == 'excited':
-        grin = skia.Path()
-        grin.addArc(skia.Rect(cx - r * 0.28, my - r * 0.22, cx + r * 0.28, my + r * 0.22), 0, 180)
-        grin.close()
-        cv.drawPath(grin, paint(0xFF3A0D18, a))
-        cv.save(); cv.clipPath(grin, doAntiAlias=True)
-        cv.drawOval(skia.Rect(cx - r * 0.18, my + r * 0.08, cx + r * 0.18, my + r * 0.34), paint(0xFFFF6F8A, a))
-        cv.restore()
-        cv.drawPath(grin, paint(INK, a, stroke=r * 0.045))
-    elif mood == 'thinking':
-        cv.drawLine(cx - r * 0.12, my + r * 0.02, cx + r * 0.16, my - r * 0.04, paint(INK, a, stroke=r * 0.05))
+    spr = (S.get('spr') or {}).get(who)
+    if spr:
+        _sprite_body(cv, spr, who, cx, cy, r, mood, mouth, t, talking, gesture, wave, point, walk, tuck, umbrella, inner, a)
     else:
-        _arc(cv, cx, my - r * 0.08, r * 0.24, r * 0.16, 20, 140, INK, r * 0.055)
-    # arms + mitten hands (in front, so hands can touch the face)
-    g = gesture or ('wave' if wave else '')
-    pv = None
-    if point is not None:
-        vx, vy = point[0] - cx, point[1] - cy
-        L = math.hypot(vx, vy) or 1.0
-        pv = (vx / L, vy / L)
-        if not g or g == 'talk':
-            g = 'point'
-    for side in (-1, 1):
-        sx_, sy_ = cx + side * r * 0.86, cy + r * 0.22
-        if umbrella and side == -inner:
-            hx, hy = cx + side * r * 1.02, cy - r * 0.1
+        # legs + shoes (behind the body)
+        for side in (-1, 1):
+            hx, hy = cx + side * r * 0.34, cy + r * 0.8
+            if walk is not None:
+                ph = walk + (0 if side < 0 else math.pi)
+                fx, fy = hx + math.sin(ph) * r * 0.32, cy + r * 1.42 - max(0.0, math.cos(ph)) * r * 0.16
+            else:
+                fx, fy = hx + side * r * 0.06, cy + r * (1.42 - 0.3 * tuck)
+            _limb(cv, hx, hy, fx, fy, r * 0.34, r * 0.34, -side, dark, r * 0.21, a)
+            sw_ = r * 0.25
+            shoe = skia.Rect(fx - sw_ + side * r * 0.09, fy - r * 0.09, fx + sw_ + side * r * 0.09, fy + r * 0.13)
+            cv.drawRRect(skia.RRect.MakeRectXY(shoe, r * 0.11, r * 0.11), paint(WHITE, a))
+            cv.drawRect(skia.Rect(shoe.left(), fy + r * 0.06, shoe.right(), fy + r * 0.13), paint(c['hi'], a))
+            cv.drawRRect(skia.RRect.MakeRectXY(shoe, r * 0.11, r * 0.11), paint(INK, a, stroke=r * 0.045))
+        # body
+        sh = skia.GradientShader.MakeRadial(skia.Point(cx - r * 0.35, cy - r * 0.4), r * 1.6, [light, dark])
+        p = skia.Paint(AntiAlias=True, Shader=sh); p.setAlphaf(a)
+        cv.drawCircle(cx, cy, r, p)
+        cv.save()
+        pth = skia.Path(); pth.addCircle(cx, cy, r); cv.clipPath(pth, doAntiAlias=True)
+        for (ddx, ddy, rx, ry) in [(-0.55, 0.45, 0.42, 0.28), (0.62, -0.55, 0.35, 0.22), (0.5, 0.7, 0.3, 0.2), (-0.75, -0.35, 0.22, 0.3)]:
+            cv.drawOval(skia.Rect(cx + (ddx - rx) * r, cy + (ddy - ry) * r, cx + (ddx + rx) * r, cy + (ddy + ry) * r), paint(c['patch'], 0.55 * a))
+        cv.restore()
+        cv.drawCircle(cx, cy, r, paint(INK, a, stroke=r * 0.07))
+        # cheeks
+        if mood in ('happy', 'excited'):
+            for side in (-1, 1):
+                cv.drawOval(skia.Rect(cx + side * r * 0.55 - r * 0.15, cy + r * 0.12, cx + side * r * 0.55 + r * 0.15, cy + r * 0.26), paint(0xFFFF7FA0, 0.55 * a))
+        # eyes
+        blink = ((t + (0.0 if who == 'terra' else 1.3)) % 3.4) < 0.12
+        ey = cy - r * 0.12
+        erx, ery = r * 0.2, r * 0.25
+        if mood == 'shocked':
+            erx, ery = r * 0.23, r * 0.29
+        pr = r * (0.06 if mood in ('shocked', 'scared') else 0.105)
+        for side in (-1, 1):
+            ex = cx + side * r * 0.33
+            if blink:
+                cv.drawLine(ex - erx, ey, ex + erx, ey, paint(INK, a, stroke=r * 0.06))
+                continue
+            cv.drawOval(skia.Rect(ex - erx, ey - ery, ex + erx, ey + ery), paint(WHITE, a))
+            cv.drawOval(skia.Rect(ex - erx, ey - ery, ex + erx, ey + ery), paint(INK, a, stroke=r * 0.04))
+            lx = look * erx * 0.45
+            ly = (-ery * 0.35) if mood == 'thinking' else (ery * 0.1)
+            cv.drawCircle(ex + lx, ey + ly, pr, paint(INK, a))
+            cv.drawCircle(ex + lx - pr * 0.35, ey + ly - pr * 0.4, pr * 0.35, paint(WHITE, a))
+        # brows
+        bw = r * 0.06
+        for side in (-1, 1):
+            bx = cx + side * r * 0.33
+            by = ey - r * 0.36
+            if mood == 'shocked':
+                _arc(cv, bx, by - r * 0.08, r * 0.17, r * 0.1, 200, 140, INK, bw)
+            elif mood == 'scared':
+                cv.drawLine(bx - side * r * 0.16, by - r * 0.12, bx + side * r * 0.14, by + r * 0.02, paint(INK, a, stroke=bw))
+            elif mood == 'sad':
+                cv.drawLine(bx - side * r * 0.16, by - r * 0.06, bx + side * r * 0.14, by + r * 0.04, paint(INK, a, stroke=bw))
+            elif mood == 'thinking':
+                off = -r * 0.1 if side == 1 else 0
+                cv.drawLine(bx - r * 0.15, by + off, bx + r * 0.15, by + off - r * 0.03, paint(INK, a, stroke=bw))
+            else:
+                _arc(cv, bx, by + r * 0.02, r * 0.15, r * 0.08, 210, 120, INK, bw)
+        # mouth
+        my = cy + r * 0.38
+        open_ = clamp(mouth)
+        if talking and open_ > 0.05 or mood == 'shocked':
+            h = r * (0.07 + 0.26 * open_) if talking else r * 0.16
+            w = r * (0.2 + 0.08 * open_) if mood != 'shocked' else r * 0.14
+            cv.drawOval(skia.Rect(cx - w, my - h, cx + w, my + h), paint(0xFF3A0D18, a))
+            if h > r * 0.12:
+                cv.save()
+                mp = skia.Path(); mp.addOval(skia.Rect(cx - w, my - h, cx + w, my + h)); cv.clipPath(mp, doAntiAlias=True)
+                cv.drawOval(skia.Rect(cx - w * 0.7, my + h * 0.2, cx + w * 0.7, my + h * 1.4), paint(0xFFFF6F8A, a))
+                cv.restore()
+            cv.drawOval(skia.Rect(cx - w, my - h, cx + w, my + h), paint(INK, a, stroke=r * 0.045))
+        elif mood == 'scared':
+            pth = skia.Path(); pth.moveTo(cx - r * 0.22, my)
+            for i in range(1, 7):
+                pth.lineTo(cx - r * 0.22 + i * r * 0.073, my + (r * 0.05 if i % 2 else -r * 0.05))
+            cv.drawPath(pth, paint(INK, a, stroke=r * 0.05))
+            cv.drawOval(skia.Rect(cx + r * 0.62, cy - r * 0.55, cx + r * 0.76, cy - r * 0.33), paint(0xFF9FE3FF, 0.9 * a))
+        elif mood == 'sad':
+            _arc(cv, cx, my + r * 0.12, r * 0.2, r * 0.12, 200, 140, INK, r * 0.055)
+        elif mood == 'excited':
+            grin = skia.Path()
+            grin.addArc(skia.Rect(cx - r * 0.28, my - r * 0.22, cx + r * 0.28, my + r * 0.22), 0, 180)
+            grin.close()
+            cv.drawPath(grin, paint(0xFF3A0D18, a))
+            cv.save(); cv.clipPath(grin, doAntiAlias=True)
+            cv.drawOval(skia.Rect(cx - r * 0.18, my + r * 0.08, cx + r * 0.18, my + r * 0.34), paint(0xFFFF6F8A, a))
+            cv.restore()
+            cv.drawPath(grin, paint(INK, a, stroke=r * 0.045))
+        elif mood == 'thinking':
+            cv.drawLine(cx - r * 0.12, my + r * 0.02, cx + r * 0.16, my - r * 0.04, paint(INK, a, stroke=r * 0.05))
         else:
-            tx, ty = _hand_targets(g, side, r, t, clamp(mouth), inner, pv)
-            hx, hy = cx + tx, cy + ty
-        hx, hy = _limb(cv, sx_, sy_, hx, hy, r * 0.5, r * 0.5, side if hy > sy_ else -side, dark, r * 0.13, a)
-        cv.drawCircle(hx, hy, r * 0.15, paint(light, a))
-        cv.drawCircle(hx, hy, r * 0.15, paint(INK, a, stroke=r * 0.04))
-        if umbrella and side == -inner:
-            _umbrella(cv, hx, hy, cx + side * r * 0.3, cy - r * 1.55, r, c['hi'] if who == 'para' else 0xFF5AB0FF, a, t)
+            _arc(cv, cx, my - r * 0.08, r * 0.24, r * 0.16, 20, 140, INK, r * 0.055)
+        # arms + mitten hands (in front, so hands can touch the face)
+        g = gesture or ('wave' if wave else '')
+        pv = None
+        if point is not None:
+            vx, vy = point[0] - cx, point[1] - cy
+            L = math.hypot(vx, vy) or 1.0
+            pv = (vx / L, vy / L)
+            if not g or g == 'talk':
+                g = 'point'
+        for side in (-1, 1):
+            sx_, sy_ = cx + side * r * 0.86, cy + r * 0.22
+            if umbrella and side == -inner:
+                hx, hy = cx + side * r * 1.02, cy - r * 0.1
+            else:
+                tx, ty = _hand_targets(g, side, r, t, clamp(mouth), inner, pv)
+                hx, hy = cx + tx, cy + ty
+            hx, hy = _limb(cv, sx_, sy_, hx, hy, r * 0.5, r * 0.5, side if hy > sy_ else -side, dark, r * 0.13, a)
+            cv.drawCircle(hx, hy, r * 0.15, paint(light, a))
+            cv.drawCircle(hx, hy, r * 0.15, paint(INK, a, stroke=r * 0.04))
+            if umbrella and side == -inner:
+                _umbrella(cv, hx, hy, cx + side * r * 0.3, cy - r * 1.55, r, c['hi'] if who == 'para' else 0xFF5AB0FF, a, t)
     # extra effects
     if action == 'shiver':
         cv.drawCircle(cx, cy, r, paint(0xFFBFEFFF, 0.28 * a))
@@ -1225,6 +1233,70 @@ def mascot(cv, who, cx, cy, r, mood='happy', mouth=0.0, t=0.0, look=0.0, talking
             an = t * 4 + k_ * 2.09
             star(cv, cx + math.cos(an) * r * 0.75, cy - r * 1.05 + math.sin(an) * r * 0.18, r * 0.12, 0xFFFFE14D, a)
     cv.restore()
+
+
+def _sprite_cell(cv, spr, name, cx, cy, s, a):
+    img, meta = spr
+    xy = meta['index'].get(name)
+    if not xy:
+        return
+    cw, ch = meta['cell']; ax, ay = meta['anchor']
+    p = S['skia'].Paint(AntiAlias=True); p.setAlphaf(a)
+    cv.drawImageRect(img, S['skia'].Rect(xy[0], xy[1], xy[0] + cw, xy[1] + ch),
+                     S['skia'].Rect(cx - ax * s, cy - ay * s, cx + (cw - ax) * s, cy + (ch - ay) * s),
+                     S['skia'].SamplingOptions(S['skia'].FilterMode.kLinear, S['skia'].MipmapMode.kLinear), p)
+
+
+def _sprite_body(cv, spr, who, cx, cy, r, mood, mouth, t, talking, gesture, wave, point, walk, tuck, umbrella, inner, a):
+    """3D-rendered sprite layers: legs, body, face, arms (atlas made with Blender)."""
+    img, meta = spr
+    s = r / meta['px_per_r']
+    # legs
+    if walk is not None:
+        legs = 'legs_walk%d' % (int((walk % (2 * math.pi)) / (2 * math.pi) * 8) % 8)
+    elif tuck > 0.5:
+        legs = 'legs_tuck'
+    else:
+        legs = 'legs_stand'
+    _sprite_cell(cv, spr, legs, cx, cy, s, a)
+    _sprite_cell(cv, spr, 'body', cx, cy, s, a)
+    # face
+    m = mood if mood in meta['moods'] else 'happy'
+    blink = ((t + (0.0 if who == 'terra' else 1.3)) % 3.4) < 0.12
+    amp = clamp(mouth)
+    if blink:
+        ms = 'blink'
+    elif talking and amp > 0.08:
+        ms = 'o1' if amp < 0.3 else 'o2' if amp < 0.6 else 'o3'
+    else:
+        ms = 'closed'
+    _sprite_cell(cv, spr, f'face_{m}_{ms}', cx, cy, s, a)
+    # arms
+    g = gesture or ('wave' if wave else '')
+    if point is not None and (not g or g == 'talk'):
+        g = 'point'
+    if umbrella:
+        arm = 'umbrella0'
+    elif walk is not None:
+        arm = 'walk%d' % (int((walk % (2 * math.pi)) / (2 * math.pi) * 8) % 8)
+    elif g == 'talk':
+        arm = 'talk%d' % (int(t * 7) % 6)
+    elif g == 'wave':
+        arm = 'wave%d' % [0, 1, 2, 1][int(t * 9) % 4]
+    elif g == 'cheer':
+        arm = 'cheer%d' % (int(t * 6) % 2)
+    elif g == 'scratch':
+        arm = 'scratch%d' % (int(t * 9) % 2)
+    elif g in ('cheeks', 'cover', 'chin', 'droop', 'point'):
+        arm = g + '0'
+    else:
+        arm = 'idle0'
+    _sprite_cell(cv, spr, 'arms_' + arm, cx, cy, s, a)
+    if umbrella:
+        hx, hy = meta['hands']['umbrella0'][str(-inner)]
+        ax, ay = meta['anchor']
+        X, Y = cx + (hx - ax) * s, cy + (hy - ay) * s
+        _umbrella(cv, X, Y, cx - inner * r * 0.3, cy - r * 1.55, r, CHAR[who]['hi'] if who == 'para' else 0xFF5AB0FF, a, t)
 
 
 def _umbrella(cv, hx, hy, tx, ty, r, col, a, t):
@@ -1302,7 +1374,7 @@ def mascot_layer(cv, t, sc):
         if st <= t + 0.3:
             mood_of[who] = mood
     default = str(sc.get('mood', 'happy'))
-    home = {'terra': (165, 1450, 90), 'para': (895, 1450, 90)}
+    home = {'terra': (175, 1440, 100), 'para': (890, 1440, 100)}
     pos = dict(home)
     wave = 0.0
     walk_in = {}
@@ -1580,6 +1652,13 @@ def setup_state(cfg):
     S['accent'] = ACCENTS.get(str(cfg.get('accent', 'orange')).lower(), ACCENTS['orange'])
     S['style'] = str(cfg.get('style', 'space')).lower()
     S['duo'] = any(isinstance(x, dict) and x.get('lines') for x in cfg.get('scenes', []))
+    S['spr'] = {}
+    sdir = os.environ.get('PE_SPRITE_DIR') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sprites')
+    if str(cfg.get('hosts', '3d')).lower() != '2d':
+        for who_ in ('terra', 'para'):
+            pi, pj = os.path.join(sdir, who_ + '.png'), os.path.join(sdir, who_ + '.json')
+            if os.path.exists(pi) and os.path.exists(pj):
+                S['spr'][who_] = (skia.Image.open(pi), json.load(open(pj)))
     rnd = random.Random(int(hashlib.md5(str(cfg.get('title', '')).encode()).hexdigest()[:6], 16))
     S['stars'] = [(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(1.2, 3.4), rnd.uniform(0, 6.28), rnd.uniform(0.3, 1.5)) for _ in range(140)]
 
