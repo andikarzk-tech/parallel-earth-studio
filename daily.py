@@ -51,7 +51,10 @@ GENES = {
     'speed': ['1.05', '1.1', '1.15'],
     'hook': ['shock', 'question', 'countdown', 'imagine', 'myth'],
     'category': ['space', 'planet earth', 'human body', 'animals', 'history', 'technology', 'everyday life', 'oceans'],
+    'fxlevel': ['light', 'heavy'],
 }
+FXLEVEL = {'light': 'VISUALS: exactly 1 "prop" scene and 1-2 scenes with "fx".',
+           'heavy': 'VISUALS: exactly 2 "prop" scenes and 3-4 scenes with "fx" (weather/particles) so the screen is always moving.'}
 HOOKS = {
     'shock': 'Terra\'s FIRST line states one shocking, concrete consequence with a number (e.g. "In 3 seconds every ocean would leave its bed!").',
     'question': 'Terra\'s FIRST line is a direct question to the viewer that creates instant curiosity (e.g. "Would you survive one day here?").',
@@ -157,7 +160,7 @@ def learn_from_data(conf_dir):
         return '\n'.join(f'- "{c.get("title")}" ({s / med:.1f}x average) opening line: "{_first_line(c)[:120]}" '
                          f'[hook={c.get("genes", {}).get("hook")}, category={c.get("genes", {}).get("category")}]' for s, c in lst)
     winners = []
-    for g in ('hook', 'category', 'style', 'accent', 'speed'):
+    for g in ('hook', 'category', 'fxlevel', 'style', 'accent', 'speed'):
         vals = {v: tot / n for v, (n, tot) in state[g].items() if n >= 2}
         if vals:
             best = max(vals, key=vals.get)
@@ -242,6 +245,7 @@ def ask_gemini(models, avoid, genes, brief, topic=None, next_cat='space'):
             'Both must be different from all of these already-made topics:\n- ' + '\n- '.join(avoid[-150:] or ['(none yet)']) +
             f'\n\nHOOK STYLE: {HOOKS[genes["hook"]]}'
             f'\nUse accent "{genes["accent"]}", style "{genes["style"]}".'
+            f'\n{FXLEVEL.get(genes.get("fxlevel"), FXLEVEL["light"])}'
             f'\n\n{brief}'
             '\nAlso add these top-level keys: "yt_title" (max 70 chars, catchy, ends with #shorts), '
             '"description" (2 short sentences), "hashtags" (5-8 hashtags in one string).')

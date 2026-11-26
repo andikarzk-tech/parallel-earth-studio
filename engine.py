@@ -619,9 +619,373 @@ def sc_split(cv, t, D, sc):
     fade_in(cv, t)
 
 
+# ------------------------------------------------------------ animated props (peraga) + weather overlays
+def _rnd(i, k=0):
+    """Deterministic pseudo-random 0..1 for particle i, channel k."""
+    x = math.sin(i * 12.9898 + k * 78.233) * 43758.5453
+    return x - math.floor(x)
+
+
+FX_WORDS = [('storm', ('storm', 'thunder', 'lightning', 'hurricane')), ('rain', ('rain', 'flood', 'downpour', 'monsoon')),
+            ('snow', ('snow', 'ice age', 'frozen', 'freez', 'blizzard', 'winter')), ('embers', ('fire', 'burn', 'heat', 'lava', 'hot', 'melt')),
+            ('meteors', ('meteor', 'asteroid', 'comet', 'shooting star')), ('bubbles', ('ocean', 'underwater', 'breathe water', 'sea ')),
+            ('wind', ('wind', 'tornado', 'gust', 'storm wind')), ('ash', ('volcano', 'eruption', 'ash'))]
+FX_LIST = ['rain', 'storm', 'snow', 'embers', 'meteors', 'bubbles', 'wind', 'ash']
+PROP_LIST = ['volcano', 'clock', 'planet_crack', 'tornado', 'rocket', 'tree', 'tsunami', 'ice', 'heart', 'brain', 'city', 'thermometer']
+
+
+def scene_fx(sc):
+    fx = str(sc.get('fx', '') or '').lower().strip()
+    if fx in FX_LIST:
+        return fx
+    if fx == 'none':
+        return ''
+    eff = str(sc.get('effect', '')).lower()
+    if eff == 'freeze':
+        return 'snow'
+    if eff == 'heat':
+        return 'embers'
+    txt = ' '.join([str(sc.get('bg', ''))] + [str(l.get('text', '')) for l in (sc.get('lines') or []) if isinstance(l, dict)]
+                   + [str(x) for x in (sc.get('head') or [])]).lower()
+    for name, words in FX_WORDS:
+        if any(w in txt for w in words):
+            return name
+    return ''
+
+
+def fx_layer(cv, t, sc, front=False):
+    """Full-screen weather / particle overlay. back layer behind mascots, front layer (rain streaks) above."""
+    fx = sc.get('_fx', '')
+    if not fx:
+        return
+    skia = S['skia']
+    k = clamp(t / 0.5)
+    if fx in ('rain', 'storm'):
+        n = 90 if fx == 'rain' else 140
+        p = paint(0xFFBFDFFF, 0.55 * k, stroke=3)
+        for i in range(n):
+            if (i % 2 == 0) != front:
+                continue
+            sp = 1500 + 700 * _rnd(i, 1)
+            x = (_rnd(i) * (W + 300) - 150 + t * 260) % (W + 300) - 150
+            y = (_rnd(i, 2) * H + t * sp) % (H + 200) - 100
+            cv.drawLine(x, y, x - 22, y - 70, p)
+        if fx == 'storm' and not front:
+            fl = t % 2.6
+            if fl < 0.16:
+                cv.drawRect(skia.Rect(0, 0, W, H), paint(0xFFE8F0FF, 0.35 * (1 - fl / 0.16)))
+                bolt = skia.Path(); x0 = 300 + 500 * _rnd(int(t // 2.6), 5); bolt.moveTo(x0, 0)
+                yy = 0
+                for j in range(9):
+                    yy += 90; bolt.lineTo(x0 + (_rnd(j, int(t // 2.6)) - 0.5) * 160, yy)
+                cv.drawPath(bolt, paint(0xFFFFFFFF, 0.9 * (1 - fl / 0.16), stroke=8))
+                cv.drawPath(bolt, paint(0xFF9FD0FF, 0.5 * (1 - fl / 0.16), stroke=22))
+        return
+    if front:
+        return
+    if fx == 'snow':
+        for i in range(110):
+            x = (_rnd(i) * W + math.sin(t * 1.3 + i) * 40) % W
+            y = (_rnd(i, 2) * H + t * (90 + 120 * _rnd(i, 1))) % H
+            cv.drawCircle(x, y, 3 + 6 * _rnd(i, 3), paint(WHITE, (0.5 + 0.4 * _rnd(i, 4)) * k))
+    elif fx == 'embers':
+        cv.drawRect(skia.Rect(0, H * 0.55, W, H), skia.Paint(Shader=skia.GradientShader.MakeLinear(
+            [skia.Point(0, H * 0.55), skia.Point(0, H)], [0x00000000, acol(0xFFFF5A1F, 0.28 * k)])))
+        for i in range(70):
+            life = (t * (0.35 + 0.3 * _rnd(i, 1)) + _rnd(i, 2)) % 1.0
+            x = _rnd(i) * W + math.sin(t * 2 + i) * 30
+            y = H + 40 - life * H * 1.1
+            cv.drawCircle(x, y, 3 + 5 * _rnd(i, 3), paint(0xFFFFB347 if i % 3 else 0xFFFF5A1F, (1 - life) * 0.9 * k))
+    elif fx == 'meteors':
+        for i in range(7):
+            per = 1.6 + _rnd(i, 1) * 1.4
+            ph = ((t + _rnd(i, 2) * per) % per) / per
+            if ph > 0.45:
+                continue
+            q = ph / 0.45
+            x0, y0 = W * (0.3 + 0.9 * _rnd(i)), -60 + 500 * _rnd(i, 3)
+            x, y = x0 - q * 900, y0 + q * 700
+            sh = skia.GradientShader.MakeLinear([skia.Point(x, y), skia.Point(x + 260, y - 200)], [acol(0xFFFFE6A8, 0.95), 0x00000000])
+            cv.drawLine(x, y, x + 260, y - 200, skia.Paint(AntiAlias=True, Shader=sh, StrokeWidth=10, Style=skia.Paint.kStroke_Style))
+            cv.drawCircle(x, y, 11, paint(0xFFFFF4D6, 1.0))
+    elif fx == 'bubbles':
+        cv.drawRect(skia.Rect(0, 0, W, H), paint(0xFF0A5CA8, 0.16 * k))
+        for i in range(45):
+            life = (t * (0.18 + 0.2 * _rnd(i, 1)) + _rnd(i, 2)) % 1.0
+            x = _rnd(i) * W + math.sin(t * 3 + i) * 20
+            y = H + 30 - life * (H + 60)
+            rr = 8 + 22 * _rnd(i, 3)
+            cv.drawCircle(x, y, rr, paint(0xFFCFF1FF, 0.6 * k, stroke=3))
+            cv.drawCircle(x - rr * 0.35, y - rr * 0.35, rr * 0.22, paint(WHITE, 0.6 * k))
+    elif fx == 'wind':
+        for i in range(26):
+            y = _rnd(i) * H
+            x = ((t * (900 + 600 * _rnd(i, 1)) + _rnd(i, 2) * W * 2) % (W * 2)) - W * 0.5
+            ln = 160 + 260 * _rnd(i, 3)
+            pth = skia.Path(); pth.moveTo(x, y)
+            pth.cubicTo(x + ln * 0.3, y - 18, x + ln * 0.7, y + 18, x + ln, y)
+            cv.drawPath(pth, paint(WHITE, 0.35 * k, stroke=4))
+    elif fx == 'ash':
+        cv.drawRect(skia.Rect(0, 0, W, H), paint(0xFF3A2A20, 0.22 * k))
+        for i in range(90):
+            x = (_rnd(i) * W + t * 40 + math.sin(t + i) * 25) % W
+            y = (_rnd(i, 2) * H + t * (50 + 60 * _rnd(i, 1))) % H
+            cv.drawCircle(x, y, 2 + 4 * _rnd(i, 3), paint(0xFF9A928C, 0.7 * k))
+
+
+# ---- object props: each draws around (cx, cy) at scale s (s=1 -> ~300 px tall); g = growth 0..1 over the scene
+def prop_volcano(cv, cx, cy, s, t, g):
+    skia = S['skia']
+    base, top = cy + 210 * s, cy - 60 * s
+    m = skia.Path(); m.moveTo(cx - 330 * s, base); m.lineTo(cx - 70 * s, top); m.lineTo(cx + 70 * s, top); m.lineTo(cx + 330 * s, base); m.close()
+    cv.drawPath(m, skia.Paint(AntiAlias=True, Shader=skia.GradientShader.MakeLinear(
+        [skia.Point(cx, top), skia.Point(cx, base)], [0xFF6B4A3A, 0xFF2E1E18])))
+    for i in range(3):  # lava streams
+        L = clamp(g * 1.6 - i * 0.2)
+        x0 = cx + (i - 1) * 40 * s
+        pth = skia.Path(); pth.moveTo(x0, top)
+        pth.quadTo(x0 + (i - 1) * 90 * s, top + 140 * s * L, x0 + (i - 1) * 160 * s * L, top + 270 * s * L)
+        cv.drawPath(pth, paint(0xFFFF6A1A, 0.95, stroke=18 * s))
+        cv.drawPath(pth, paint(0xFFFFD166, 0.8, stroke=6 * s))
+    for i in range(10):  # smoke
+        life = (t * 0.4 + i / 10) % 1.0
+        cv.drawCircle(cx + math.sin(i * 2.1 + t) * 60 * s * life, top - 40 * s - life * 380 * s, (30 + 70 * life) * s, paint(0xFF55504E, 0.55 * (1 - life)))
+    for i in range(16):  # lava bombs
+        per = 1.2 + _rnd(i) * 0.8
+        ph = ((t + _rnd(i, 1) * per) % per) / per
+        vx = (_rnd(i, 2) - 0.5) * 520 * s
+        x = cx + vx * ph
+        y = top - (900 * ph - 1100 * ph * ph) * s
+        cv.drawCircle(x, y, (8 + 10 * _rnd(i, 3)) * s, paint(0xFFFF8A2A, 1 - ph * 0.5))
+    cv.drawOval(skia.Rect(cx - 72 * s, top - 14 * s, cx + 72 * s, top + 14 * s), paint(0xFFFFB347, 0.9))
+
+
+def prop_clock(cv, cx, cy, s, t, g):
+    skia = S['skia']
+    R = 230 * s
+    cv.drawCircle(cx, cy, R + 18 * s, paint(S['accent'], 1))
+    cv.drawCircle(cx, cy, R, paint(0xFFF7F3E8, 1))
+    for i in range(12):
+        an = i * math.pi / 6
+        cv.drawLine(cx + math.sin(an) * R * 0.82, cy - math.cos(an) * R * 0.82, cx + math.sin(an) * R * 0.94, cy - math.cos(an) * R * 0.94, paint(INK, 1, stroke=8 * s))
+    speed = 1 + 18 * g * g
+    mins = t * speed * 2.2
+    for frac, ln, wd in ((mins / 12.0, 0.55, 16), (mins, 0.82, 10)):
+        an = frac * 2 * math.pi
+        for trail in range(5 if speed > 6 else 1):
+            a_ = an - trail * 0.12 * (speed / 19)
+            cv.drawLine(cx, cy, cx + math.sin(a_) * R * ln, cy - math.cos(a_) * R * ln, paint(INK, 1 - trail * 0.2, stroke=wd * s))
+    cv.drawCircle(cx, cy, 16 * s, paint(0xFFFF4D4D, 1))
+
+
+def prop_planet_crack(cv, cx, cy, s, t, g):
+    skia = S['skia']
+    R = 230 * s
+    sh_ = (math.sin(t * 60) * 6 * s * g, math.cos(t * 51) * 6 * s * g)
+    cx, cy = cx + sh_[0], cy + sh_[1]
+    globe(cv, cx, cy, R, *BODIES['earth'], t * 0.1, 1.0)
+    cv.save(); pth = skia.Path(); pth.addCircle(cx, cy, R); cv.clipPath(pth, doAntiAlias=True)
+    for c_ in range(6):
+        an = c_ * 1.05 + 0.3
+        pts = [(cx, cy)]
+        L = R * 1.1 * clamp(g * 1.4 - c_ * 0.08)
+        steps = 7
+        for j in range(1, steps + 1):
+            d = L * j / steps
+            jit = (_rnd(c_ * 10 + j) - 0.5) * 0.5
+            pts.append((cx + math.cos(an + jit) * d, cy + math.sin(an + jit) * d))
+        cp = skia.Path(); cp.moveTo(*pts[0])
+        for q in pts[1:]:
+            cp.lineTo(*q)
+        cv.drawPath(cp, paint(0xFFFF6A1A, 0.55, stroke=26 * s))
+        cv.drawPath(cp, paint(0xFFFFE08A, 1, stroke=8 * s))
+    cv.restore()
+    if g > 0.7:
+        for i in range(10):
+            q = (g - 0.7) / 0.3
+            an = i * 0.63
+            cv.drawCircle(cx + math.cos(an) * (R + 120 * s * q), cy + math.sin(an) * (R + 120 * s * q), 14 * s, paint(0xFF6B4A3A, 1 - q * 0.5))
+
+
+def prop_tornado(cv, cx, cy, s, t, g):
+    for i in range(14):
+        f = i / 13
+        y = cy - 230 * s + f * 460 * s
+        w = (230 - 190 * f) * s
+        off = math.sin(t * 3 + f * 4) * 60 * s * f
+        cv.drawOval(S['skia'].Rect(cx + off - w, y - 26 * s, cx + off + w, y + 26 * s), paint(0xFF9AA3B5, 0.5, stroke=14 * s))
+    for i in range(14):
+        an = t * 5 + i * 0.9
+        f = _rnd(i)
+        y = cy - 200 * s + f * 380 * s
+        w = (230 - 190 * f) * s * 1.1
+        cv.drawRect(S['skia'].Rect(cx + math.cos(an) * w - 9 * s, y + math.sin(an) * 20 * s - 9 * s, cx + math.cos(an) * w + 9 * s, y + math.sin(an) * 20 * s + 9 * s), paint(0xFF6B4A3A, 0.9))
+
+
+def prop_rocket(cv, cx, cy, s, t, g):
+    skia = S['skia']
+    y = cy + 120 * s - g * 520 * s + math.sin(t * 40) * 3 * s
+    for i in range(16):  # smoke trail
+        life = (t * 0.8 + i / 16) % 1.0
+        cv.drawCircle(cx + math.sin(i * 1.7) * 50 * s * life, y + 200 * s + life * 520 * s, (30 + 60 * life) * s, paint(0xFFD8DCE6, 0.5 * (1 - life)))
+    fl = 1 + 0.25 * math.sin(t * 50)
+    flame = skia.Path(); flame.moveTo(cx - 40 * s, y + 140 * s); flame.quadTo(cx, y + (260 + 60 * fl) * s, cx + 40 * s, y + 140 * s); flame.close()
+    cv.drawPath(flame, paint(0xFFFF8A2A, 1)); cv.drawPath(flame, paint(0xFFFFE08A, 0.8, stroke=8 * s))
+    bodyp = skia.Path(); bodyp.moveTo(cx, y - 200 * s); bodyp.quadTo(cx + 80 * s, y - 120 * s, cx + 70 * s, y + 140 * s)
+    bodyp.lineTo(cx - 70 * s, y + 140 * s); bodyp.quadTo(cx - 80 * s, y - 120 * s, cx, y - 200 * s); bodyp.close()
+    for side in (-1, 1):
+        fin = skia.Path(); fin.moveTo(cx + side * 60 * s, y + 40 * s); fin.lineTo(cx + side * 130 * s, y + 160 * s); fin.lineTo(cx + side * 60 * s, y + 140 * s); fin.close()
+        cv.drawPath(fin, paint(0xFFFF4D4D, 1)); cv.drawPath(fin, paint(INK, 1, stroke=6 * s))
+    cv.drawPath(bodyp, paint(0xFFF4F7FF, 1)); cv.drawPath(bodyp, paint(INK, 1, stroke=7 * s))
+    cv.drawCircle(cx, y - 60 * s, 34 * s, paint(0xFF5AB0FF, 1)); cv.drawCircle(cx, y - 60 * s, 34 * s, paint(INK, 1, stroke=7 * s))
+
+
+def prop_tree(cv, cx, cy, s, t, g):
+    base = cy + 230 * s
+
+    def branch(x, y, ang, ln, depth, gk):
+        if depth == 0 or gk <= 0:
+            return
+        L = ln * clamp(gk)
+        x2, y2 = x + math.sin(ang) * L, y - math.cos(ang) * L
+        cv.drawLine(x, y, x2, y2, paint(0xFF6B4A2A, 1, stroke=max(3, depth * 6 * s)))
+        if depth <= 2 and gk > 0.6:
+            cv.drawCircle(x2, y2, (34 + 6 * math.sin(t * 2 + depth)) * s * clamp((gk - 0.6) / 0.4), paint(0xFF3FBF6A, 0.9))
+        sway = math.sin(t * 1.5 + depth) * 0.06
+        branch(x2, y2, ang - 0.45 + sway, ln * 0.72, depth - 1, gk * 1.3 - 0.25)
+        branch(x2, y2, ang + 0.4 + sway, ln * 0.72, depth - 1, gk * 1.3 - 0.3)
+    cv.drawOval(S['skia'].Rect(cx - 220 * s, base - 20 * s, cx + 220 * s, base + 20 * s), paint(0xFF2E6B3A, 0.8))
+    branch(cx, base, 0.0, 170 * s, 6, 0.25 + g * 1.2)
+
+
+def prop_tsunami(cv, cx, cy, s, t, g):
+    skia = S['skia']
+    for i in range(7):  # city
+        bx = cx - 300 * s + i * 95 * s
+        bh = (80 + 120 * _rnd(i)) * s
+        cv.drawRect(skia.Rect(bx, cy + 230 * s - bh, bx + 70 * s, cy + 230 * s), paint(0xFF2A3350, 1))
+    H_ = (120 + 300 * g) * s
+    x_front = cx + 420 * s - g * 520 * s
+    wv = skia.Path(); wv.moveTo(cx - 600 * s, cy + 240 * s)
+    for k in range(0, 41):
+        x = cx - 600 * s + k * 30 * s
+        if x > x_front:
+            break
+        wv.lineTo(x, cy + 240 * s - H_ + math.sin(t * 4 + k * 0.5) * 12 * s)
+    wv.quadTo(x_front + 120 * s, cy + 240 * s - H_ * 1.1, x_front + 60 * s, cy + 240 * s - H_ * 0.55)
+    wv.lineTo(x_front + 20 * s, cy + 240 * s); wv.close()
+    cv.drawPath(wv, skia.Paint(AntiAlias=True, Shader=skia.GradientShader.MakeLinear(
+        [skia.Point(0, cy + 240 * s - H_), skia.Point(0, cy + 240 * s)], [0xFF5FD3F5, 0xFF0A4E8C])))
+    for i in range(12):
+        an = t * 3 + i
+        cv.drawCircle(x_front + 60 * s + math.cos(an) * 40 * s, cy + 240 * s - H_ * 1.0 + math.sin(an) * 30 * s, 14 * s, paint(WHITE, 0.85))
+
+
+def prop_ice(cv, cx, cy, s, t, g):
+    skia = S['skia']
+    R = 260 * s * clamp(0.2 + g)
+    for arm in range(6):
+        an = arm * math.pi / 3 + t * 0.15
+        ex, ey = cx + math.cos(an) * R, cy + math.sin(an) * R
+        cv.drawLine(cx, cy, ex, ey, paint(0xFFDDF6FF, 1, stroke=14 * s))
+        for j in (0.4, 0.65, 0.85):
+            bx, by = cx + math.cos(an) * R * j, cy + math.sin(an) * R * j
+            for sd in (-1, 1):
+                a2 = an + sd * 0.7
+                cv.drawLine(bx, by, bx + math.cos(a2) * R * 0.22, by + math.sin(a2) * R * 0.22, paint(0xFFBFEFFF, 1, stroke=9 * s))
+    cv.drawCircle(cx, cy, 34 * s, paint(WHITE, 1))
+    cv.drawCircle(cx, cy, R * 1.15, paint(0xFFBFEFFF, 0.25 * (0.5 + 0.5 * math.sin(t * 3)), stroke=6 * s))
+
+
+def prop_heart(cv, cx, cy, s, t, g):
+    skia = S['skia']
+    bpm = 1.2 + 1.6 * g
+    ph = (t * bpm) % 1.0
+    beat = 1 + 0.12 * math.exp(-ph * 9) + 0.07 * math.exp(-max(0, ph - 0.18) * 9) * (ph > 0.18)
+    cv.save(); cv.translate(cx, cy - 40 * s); cv.scale(beat * s, beat * s)
+    hp = skia.Path(); hp.moveTo(0, 150)
+    hp.cubicTo(-260, -20, -150, -210, 0, -90); hp.cubicTo(150, -210, 260, -20, 0, 150); hp.close()
+    cv.drawPath(hp, skia.Paint(AntiAlias=True, Shader=skia.GradientShader.MakeRadial(skia.Point(-60, -80), 260, [0xFFFF7A8A, 0xFFC0182E])))
+    cv.drawPath(hp, paint(INK, 1, stroke=8))
+    cv.restore()
+    ecg = skia.Path(); base = cy + 210 * s
+    for k in range(0, 61):
+        x = cx - 330 * s + k * 11 * s
+        q = ((k / 60.0) * 2 + t * bpm) % 1.0
+        y = base - (120 * s if 0.45 < q < 0.5 else -50 * s if 0.5 <= q < 0.54 else 0)
+        (ecg.moveTo if k == 0 else ecg.lineTo)(x, y)
+    cv.drawPath(ecg, paint(0xFF5EE6A8, 1, stroke=7 * s))
+
+
+def prop_brain(cv, cx, cy, s, t, g):
+    skia = S['skia']
+    for side in (-1, 1):
+        cv.drawOval(skia.Rect(cx + (side * 115 - 140) * s, cy - 170 * s, cx + (side * 115 + 140) * s, cy + 150 * s), paint(0xFFFF9EBB, 1))
+        cv.drawOval(skia.Rect(cx + (side * 115 - 140) * s, cy - 170 * s, cx + (side * 115 + 140) * s, cy + 150 * s), paint(INK, 1, stroke=8 * s))
+        for j in range(4):
+            _arc(cv, cx + side * (80 + 25 * (j % 2)) * s, cy - 110 * s + j * 70 * s, 70 * s, 28 * s, 200 if j % 2 else 20, 140, 0xFFD66A8A, 7 * s)
+    for i in range(int(6 + 14 * g)):
+        x1, y1 = cx + (_rnd(i) - 0.5) * 420 * s, cy + (_rnd(i, 1) - 0.5) * 280 * s
+        x2, y2 = cx + (_rnd(i, 2) - 0.5) * 420 * s, cy + (_rnd(i, 3) - 0.5) * 280 * s
+        cv.drawLine(x1, y1, x2, y2, paint(0xFFFFE14D, 0.35, stroke=3 * s))
+        q = (t * 1.5 + _rnd(i, 4)) % 1.0
+        cv.drawCircle(x1 + (x2 - x1) * q, y1 + (y2 - y1) * q, 9 * s, paint(0xFFFFF4A8, 1))
+
+
+def prop_city(cv, cx, cy, s, t, g):
+    skia = S['skia']
+    for i in range(9):
+        bx = cx - 380 * s + i * 86 * s
+        bh = (150 + 230 * _rnd(i)) * s
+        top = cy + 240 * s - bh
+        cv.drawRect(skia.Rect(bx, top, bx + 76 * s, cy + 240 * s), paint(0xFF1E2744 if i % 2 else 0xFF263157, 1))
+        for wy in range(int(bh // (34 * s))):
+            for wx in range(2):
+                on = _rnd(i * 50 + wy * 2 + wx, int(t * 2)) < 0.35 + 0.5 * g
+                cv.drawRect(skia.Rect(bx + (12 + wx * 32) * s, top + (14 + wy * 34) * s, bx + (32 + wx * 32) * s, top + (34 + wy * 34) * s),
+                            paint(0xFFFFD84D if on else 0xFF39456B, 1))
+    for i in range(6):
+        q = (t * 0.4 + i / 6) % 1.0
+        cv.drawCircle(cx - 420 * s + q * 840 * s, cy + 255 * s, 8 * s, paint(0xFFFF5A4E if i % 2 else WHITE, 0.9))
+
+
+def prop_thermometer(cv, cx, cy, s, t, g):
+    skia = S['skia']
+    lvl = clamp(0.25 + 0.7 * ease(g))
+    cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(cx - 40 * s, cy - 250 * s, cx + 40 * s, cy + 170 * s), 40 * s, 40 * s), paint(WHITE, 1))
+    cv.drawCircle(cx, cy + 200 * s, 75 * s, paint(WHITE, 1))
+    col = lerp_col(0xFF5AB0FF, 0xFFFF4D2E, lvl)
+    cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(cx - 20 * s, cy + 170 * s - lvl * 400 * s, cx + 20 * s, cy + 190 * s), 20 * s, 20 * s), paint(col, 1))
+    cv.drawCircle(cx, cy + 200 * s, 55 * s, paint(col, 1))
+    for j in range(8):
+        yy = cy + 150 * s - j * 50 * s
+        cv.drawLine(cx + 50 * s, yy, cx + 80 * s, yy, paint(WHITE, 0.8, stroke=5 * s))
+
+
+PROPS = {'volcano': prop_volcano, 'clock': prop_clock, 'planet_crack': prop_planet_crack, 'tornado': prop_tornado,
+         'rocket': prop_rocket, 'tree': prop_tree, 'tsunami': prop_tsunami, 'ice': prop_ice, 'heart': prop_heart,
+         'brain': prop_brain, 'city': prop_city, 'thermometer': prop_thermometer}
+
+
+def sc_prop(cv, t, D, sc):
+    """Big animated illustration of the scenario (peraga)."""
+    bg(cv, t)
+    name = str(sc.get('prop', 'planet_crack')).lower().replace(' ', '_')
+    fn = PROPS.get(name, prop_planet_crack)
+    k = ease(t / 0.45)
+    g = clamp(t / max(D * 0.85, 0.5))
+    cv.save(); cv.translate(540, 960); cv.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k); cv.translate(-540, -960)
+    fn(cv, 540, 960, 1.0, t, g)
+    cv.restore()
+    labels(cv, t, sc, 1330, 0.8)
+    headline(cv, sc.get('head'), t, 400, 100)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
 SCENES = {'split': sc_split, 'title': sc_title, 'globe': sc_globe, 'counter': sc_counter, 'bars': sc_bars, 'words': sc_words,
           'compare': sc_compare, 'distance': sc_distance, 'wave': sc_wave, 'timeline': sc_timeline,
-          'fact': sc_fact, 'brand': sc_brand, 'cta': sc_cta}
+          'fact': sc_fact, 'brand': sc_brand, 'cta': sc_cta, 'prop': sc_prop}
 
 
 
@@ -638,18 +1002,70 @@ def _arc(cv, cx, cy, w, h, start, sweep, color, width):
     cv.drawArc(skia.Rect(cx - w, cy - h, cx + w, cy + h), start, sweep, False, paint(color, 1, stroke=width))
 
 
+def _limb(cv, x0, y0, x1, y1, ln1, ln2, bend, col, width, a):
+    """Two-segment limb from (x0,y0) to (x1,y1); elbow pushed to side `bend` (+1/-1)."""
+    dx, dy = x1 - x0, y1 - y0
+    d = math.hypot(dx, dy) or 1.0
+    reach = ln1 + ln2
+    if d > reach:
+        x1, y1 = x0 + dx / d * reach, y0 + dy / d * reach
+        d = reach
+    a1 = (ln1 * ln1 + d * d - ln2 * ln2) / (2 * d)
+    h = math.sqrt(max(0.0, ln1 * ln1 - a1 * a1))
+    mx, my = x0 + dx / d * a1, y0 + dy / d * a1
+    ex, ey = mx - dy / d * h * bend, my + dx / d * h * bend
+    p = paint(col, a, stroke=width)
+    p.setStrokeCap(S['skia'].Paint.kRound_Cap)
+    cv.drawLine(x0, y0, ex, ey, p)
+    cv.drawLine(ex, ey, x1, y1, p)
+    return x1, y1
+
+
+def _hand_targets(gesture, side, r, t, amp, inner, point_vec):
+    """Hand position relative to body centre for one side (-1 left, +1 right)."""
+    sw = math.sin(t * 2.4 + side) * 0.05 * r
+    idle = (side * 1.12 * r, 0.78 * r + sw)
+    g = gesture
+    if g == 'talk':
+        ph = math.sin(t * 7 + (0 if side < 0 else 2.2))
+        return (side * (1.22 + 0.12 * ph) * r, (0.05 - 0.35 * amp - 0.15 * ph) * r)
+    if g == 'wave' and side == inner:
+        ang = math.sin(t * 11) * 0.35
+        return (side * (1.05 + 0.3 * math.sin(ang)) * r, (-1.05 + 0.15 * math.cos(ang)) * r)
+    if g == 'point' and point_vec and side == (1 if point_vec[0] >= 0 else -1):
+        return (side * 0.9 * r + point_vec[0] * 0.8 * r, 0.15 * r + point_vec[1] * 0.8 * r)
+    if g == 'cheeks':
+        return (side * 0.62 * r, 0.22 * r)
+    if g == 'cover':
+        return (side * 0.2 * r, 0.42 * r)
+    if g == 'chin' and side == inner:
+        return (side * 0.12 * r, 0.7 * r)
+    if g == 'scratch' and side == inner:
+        return (side * (0.32 + 0.06 * math.sin(t * 16)) * r, -0.98 * r)
+    if g == 'cheer':
+        return (side * 1.0 * r, (-1.25 - 0.08 * math.sin(t * 9)) * r)
+    if g == 'droop':
+        return (side * 0.92 * r, 1.05 * r)
+    if g == 'hug':
+        return (side * 0.55 * r, 0.55 * r)
+    return idle
+
+
 def mascot(cv, who, cx, cy, r, mood='happy', mouth=0.0, t=0.0, look=0.0, talking=False, a=1.0, wave=0.0,
-           action='', point=None, spin=0.0):
+           action='', point=None, spin=0.0, gesture='', walk=None, umbrella=False, hop=0.0, inner=None):
+    """Full-body cartoon planet: legs with shoes, two-segment arms with mitten hands, face with moods."""
     skia = S['skia']
     c = CHAR.get(who, CHAR['terra'])
     if a <= 0 or r <= 2:
         return
+    inner = inner if inner is not None else (1 if who == 'terra' else -1)
     breathe = 1 + 0.018 * math.sin(t * 2.2 + (0 if who == 'terra' else 1.7))
     bob = -abs(math.sin(t * 9)) * 7 * mouth if talking else 0
     dx = dy = rot = 0.0
     sy = 1.0
+    tuck = 0.0
     if action == 'jump':
-        ph = abs(math.sin(t * 5.5)); dy = -ph * r * 0.45; sy = 1 - 0.12 * (1 - ph) ** 6
+        ph = abs(math.sin(t * 5.5)); dy = -ph * r * 0.45; sy = 1 - 0.12 * (1 - ph) ** 6; tuck = ph
     elif action == 'tremble':
         dx = math.sin(t * 70) * r * 0.045
     elif action == 'shiver':
@@ -660,29 +1076,39 @@ def mascot(cv, who, cx, cy, r, mood='happy', mouth=0.0, t=0.0, look=0.0, talking
         rot = math.sin(t * 3) * 16
     elif action == 'sweat':
         sy = 0.94 + 0.02 * math.sin(t * 3)
+    elif action == 'lean':
+        rot = -10 + math.sin(t * 6) * 3
+    if hop:
+        dy -= hop * r * 0.55; tuck = max(tuck, hop)
+    if walk is not None:
+        dy -= abs(math.sin(walk)) * r * 0.08
+        rot += math.sin(walk) * 4
     rot += spin
     cv.save()
     cv.translate(cx + dx, cy + bob + dy); cv.rotate(rot); cv.scale(breathe, sy / breathe); cv.translate(-cx, -cy)
-    # little arms (wave on brand/cta)
-    arm = paint(c['dark'], a, stroke=r * 0.1)
+    dark, light = c['dark'], c['light']
+    # legs + shoes (behind the body)
     for side in (-1, 1):
-        sx = cx + side * r * 0.92
-        ang = (0.6 + 0.5 * math.sin(t * 10)) if (wave and side == (1 if who == 'terra' else -1)) else 0.25
-        ex, ey = sx + side * r * 0.35 * math.cos(ang), cy + r * 0.15 - r * 0.45 * math.sin(ang)
-        if point and side == (1 if who == 'terra' else -1):
-            vx, vy = point[0] - sx, point[1] - (cy + r * 0.2)
-            L = math.hypot(vx, vy) or 1
-            ex, ey = sx + vx / L * r * 0.75, cy + r * 0.2 + vy / L * r * 0.75
-        cv.drawLine(sx, cy + r * 0.2, ex, ey, arm)
-        cv.drawCircle(ex, ey, r * 0.11, paint(c['light'], a))
+        hx, hy = cx + side * r * 0.34, cy + r * 0.8
+        if walk is not None:
+            ph = walk + (0 if side < 0 else math.pi)
+            fx, fy = hx + math.sin(ph) * r * 0.32, cy + r * 1.42 - max(0.0, math.cos(ph)) * r * 0.16
+        else:
+            fx, fy = hx + side * r * 0.06, cy + r * (1.42 - 0.3 * tuck)
+        _limb(cv, hx, hy, fx, fy, r * 0.34, r * 0.34, -side, dark, r * 0.21, a)
+        sw_ = r * 0.25
+        shoe = skia.Rect(fx - sw_ + side * r * 0.09, fy - r * 0.09, fx + sw_ + side * r * 0.09, fy + r * 0.13)
+        cv.drawRRect(skia.RRect.MakeRectXY(shoe, r * 0.11, r * 0.11), paint(WHITE, a))
+        cv.drawRect(skia.Rect(shoe.left(), fy + r * 0.06, shoe.right(), fy + r * 0.13), paint(c['hi'], a))
+        cv.drawRRect(skia.RRect.MakeRectXY(shoe, r * 0.11, r * 0.11), paint(INK, a, stroke=r * 0.045))
     # body
-    sh = skia.GradientShader.MakeRadial(skia.Point(cx - r * 0.35, cy - r * 0.4), r * 1.6, [c['light'], c['dark']])
+    sh = skia.GradientShader.MakeRadial(skia.Point(cx - r * 0.35, cy - r * 0.4), r * 1.6, [light, dark])
     p = skia.Paint(AntiAlias=True, Shader=sh); p.setAlphaf(a)
     cv.drawCircle(cx, cy, r, p)
     cv.save()
     pth = skia.Path(); pth.addCircle(cx, cy, r); cv.clipPath(pth, doAntiAlias=True)
-    for (dx, dy, rx, ry) in [(-0.55, 0.45, 0.42, 0.28), (0.62, -0.55, 0.35, 0.22), (0.5, 0.7, 0.3, 0.2), (-0.75, -0.35, 0.22, 0.3)]:
-        cv.drawOval(skia.Rect(cx + (dx - rx) * r, cy + (dy - ry) * r, cx + (dx + rx) * r, cy + (dy + ry) * r), paint(c['patch'], 0.55 * a))
+    for (ddx, ddy, rx, ry) in [(-0.55, 0.45, 0.42, 0.28), (0.62, -0.55, 0.35, 0.22), (0.5, 0.7, 0.3, 0.2), (-0.75, -0.35, 0.22, 0.3)]:
+        cv.drawOval(skia.Rect(cx + (ddx - rx) * r, cy + (ddy - ry) * r, cx + (ddx + rx) * r, cy + (ddy + ry) * r), paint(c['patch'], 0.55 * a))
     cv.restore()
     cv.drawCircle(cx, cy, r, paint(INK, a, stroke=r * 0.07))
     # cheeks
@@ -757,6 +1183,28 @@ def mascot(cv, who, cx, cy, r, mood='happy', mouth=0.0, t=0.0, look=0.0, talking
         cv.drawLine(cx - r * 0.12, my + r * 0.02, cx + r * 0.16, my - r * 0.04, paint(INK, a, stroke=r * 0.05))
     else:
         _arc(cv, cx, my - r * 0.08, r * 0.24, r * 0.16, 20, 140, INK, r * 0.055)
+    # arms + mitten hands (in front, so hands can touch the face)
+    g = gesture or ('wave' if wave else '')
+    pv = None
+    if point is not None:
+        vx, vy = point[0] - cx, point[1] - cy
+        L = math.hypot(vx, vy) or 1.0
+        pv = (vx / L, vy / L)
+        if not g or g == 'talk':
+            g = 'point'
+    for side in (-1, 1):
+        sx_, sy_ = cx + side * r * 0.86, cy + r * 0.22
+        if umbrella and side == -inner:
+            hx, hy = cx + side * r * 1.02, cy - r * 0.1
+        else:
+            tx, ty = _hand_targets(g, side, r, t, clamp(mouth), inner, pv)
+            hx, hy = cx + tx, cy + ty
+        hx, hy = _limb(cv, sx_, sy_, hx, hy, r * 0.5, r * 0.5, side if hy > sy_ else -side, dark, r * 0.13, a)
+        cv.drawCircle(hx, hy, r * 0.15, paint(light, a))
+        cv.drawCircle(hx, hy, r * 0.15, paint(INK, a, stroke=r * 0.04))
+        if umbrella and side == -inner:
+            _umbrella(cv, hx, hy, cx + side * r * 0.3, cy - r * 1.55, r, c['hi'] if who == 'para' else 0xFF5AB0FF, a, t)
+    # extra effects
     if action == 'shiver':
         cv.drawCircle(cx, cy, r, paint(0xFFBFEFFF, 0.28 * a))
         for k_ in range(5):
@@ -776,6 +1224,27 @@ def mascot(cv, who, cx, cy, r, mood='happy', mouth=0.0, t=0.0, look=0.0, talking
         for k_ in range(3):
             an = t * 4 + k_ * 2.09
             star(cv, cx + math.cos(an) * r * 0.75, cy - r * 1.05 + math.sin(an) * r * 0.18, r * 0.12, 0xFFFFE14D, a)
+    cv.restore()
+
+
+def _umbrella(cv, hx, hy, tx, ty, r, col, a, t):
+    """Umbrella held at (hx, hy); canopy centred at (tx, ty) above the head."""
+    skia = S['skia']
+    cv.save(); cv.translate(hx, hy); cv.rotate(math.sin(t * 2.3) * 3); cv.translate(-hx, -hy)
+    cv.drawLine(hx, hy + r * 0.12, tx, ty - r * 0.5, paint(0xFFE3E7F0, a, stroke=r * 0.07))
+    w = r * 1.3
+    can = skia.Path()
+    can.moveTo(tx - w, ty + r * 0.12)
+    can.cubicTo(tx - w * 0.9, ty - r * 0.8, tx + w * 0.9, ty - r * 0.8, tx + w, ty + r * 0.12)
+    for k in range(3, -1, -1):
+        x0 = tx - w + k * w * 0.5
+        can.quadTo(x0 + w * 0.25, ty - r * 0.08, x0, ty + r * 0.12)
+    can.close()
+    cv.drawPath(can, paint(col, a))
+    for k in (-0.5, 0.0, 0.5):
+        cv.drawLine(tx, ty - r * 0.58, tx + k * w, ty + r * 0.1, paint(INK, 0.35 * a, stroke=r * 0.03))
+    cv.drawPath(can, paint(INK, a, stroke=r * 0.05))
+    cv.drawCircle(tx, ty - r * 0.62, r * 0.07, paint(INK, a))
     cv.restore()
 
 
@@ -813,11 +1282,15 @@ def react_icon(cv, kind, x, y, s, a):
     cv.restore()
 
 
+GESTURE_OF = {'shocked': 'cheeks', 'scared': 'cover', 'excited': 'cheer', 'sad': 'droop', 'thinking': 'scratch'}
+
+
 def mascot_layer(cv, t, sc):
-    """Draw Terra & Para over every scene, mouths driven by the voice track."""
+    """Draw Terra & Para (full body) over every scene: walk-ins, gestures, reactions, mouths driven by the voice."""
     if not S.get('duo'):
         return
     kind = str(sc.get('type', '')).lower()
+    idx = int(sc.get('_idx', 0))
     tl = sc.get('_tl') or []
     env = sc.get('_env') or []
     fi = int(t * FPS)
@@ -829,14 +1302,29 @@ def mascot_layer(cv, t, sc):
         if st <= t + 0.3:
             mood_of[who] = mood
     default = str(sc.get('mood', 'happy'))
-    pos = {'terra': (150, 1470, 100), 'para': (930, 1470, 100)}
+    home = {'terra': (165, 1450, 90), 'para': (895, 1450, 90)}
+    pos = dict(home)
     wave = 0.0
+    walk_in = {}
     if kind == 'brand':
-        pos = {'terra': (330, 1060, 150), 'para': (750, 1060, 150)}; wave = 1.0
+        pos = {'terra': (330, 1080, 135), 'para': (750, 1080, 135)}; wave = 1.0
     elif kind == 'cta':
-        pos = {'terra': (330, 720, 115), 'para': (750, 720, 115)}; wave = 1.0
+        pos = {'terra': (330, 740, 105), 'para': (750, 740, 105)}; wave = 1.0
+    if kind in ('brand', 'cta'):
+        for who in ('terra', 'para'):     # walk from the corners to centre stage
+            q = ease(t / 0.9)
+            (x0, y0, r0), (x1, y1, r1) = home[who], pos[who]
+            pos[who] = (x0 + (x1 - x0) * q, y0 + (y1 - y0) * q, r0 + (r1 - r0) * q)
+            if t < 0.9:
+                walk_in[who] = t * 14
+    elif idx == 0 and kind == 'title' and t < 1.1:
+        q = ease(t / 1.1)
+        x, y, r = home['terra']
+        pos['terra'] = (-160 + (x + 160) * q, y, r)
+        walk_in['terra'] = t * 14
     eff = str(sc.get('effect', '')).lower()
     forced = str(sc.get('action', '') or '').lower()
+    fx = sc.get('_fx', '')
     line_start = {}
     for (st, en, who_, mood_) in tl:
         if st <= t:
@@ -850,31 +1338,49 @@ def mascot_layer(cv, t, sc):
         look = 0.0 if talking else (1.0 if who == 'terra' else -1.0) if speaker else (0.6 if who == 'terra' else -0.6)
         act = forced
         if not act:
-            if eff == 'freeze' or 'freez' in str(sc.get('bg', '')):
+            if eff == 'freeze' or fx == 'snow' or 'freez' in str(sc.get('bg', '')):
                 act = 'shiver'
-            elif eff == 'heat':
+            elif eff == 'heat' or fx == 'embers':
                 act = 'sweat'
             elif eff == 'wobble':
                 act = 'dizzy'
+            elif fx == 'wind':
+                act = 'lean'
             elif mood == 'scared':
                 act = 'tremble'
             elif mood == 'excited' and talking:
                 act = 'jump'
+        # gesture: what the hands do
+        if wave:
+            gest = 'wave'
+        elif talking:
+            gest = GESTURE_OF.get(mood, 'talk') if mood in ('shocked', 'scared', 'excited') else 'talk'
+        else:
+            gest = GESTURE_OF.get(mood, '')
+            if gest == 'scratch' and who == 'para':
+                gest = 'chin'
         point = None
-        if talking and kind in ('counter', 'bars', 'compare', 'timeline', 'wave', 'globe', 'distance', 'split') and act in ('', 'tremble'):
+        if talking and kind in ('counter', 'bars', 'compare', 'timeline', 'wave', 'globe', 'distance', 'split', 'prop') and act in ('', 'tremble') \
+                and mood not in ('shocked', 'scared', 'excited'):
             point = (540, 960)
+        # quick hop when a line starts with a big emotion
+        hop = 0.0
+        if who in line_start:
+            st_, m_ = line_start[who]
+            age_ = t - st_
+            if m_ in ('shocked', 'excited') and age_ < 0.4:
+                hop = math.sin(math.pi * age_ / 0.4)
         pop, spin = 1.0, 0.0
-        if kind == 'title' and who == 'para':
+        if kind == 'title' and who == 'para' and idx == 0:
             pop = ease((t - 0.7) / 0.5); spin = (1 - pop) * 540
             pr_ = clamp((t - 0.45) / 0.35) * (1 - clamp((t - 1.9) / 0.5))
             if pr_ > 0:
                 portal_ring(cv, x, y, r * 1.45 * pr_, t, pr_)
-        elif kind == 'title':
-            pop = ease(t / 0.35)
         if pop <= 0:
             continue
-        mascot(cv, who, x, y + (1 - pop) * (0 if who == 'para' and kind == 'title' else 200), r * (pop if (kind == 'title' and who == 'para') else 1.0),
-               mood, amp if talking else 0.0, t, look, talking, 1.0, wave, act, point, spin)
+        mascot(cv, who, x, y, r * (pop if (kind == 'title' and who == 'para' and idx == 0) else 1.0),
+               mood, amp if talking else 0.0, t, look, talking, 1.0, wave, act, point, spin,
+               gesture=gest, walk=walk_in.get(who), umbrella=fx in ('rain', 'storm') and kind not in ('brand', 'cta'), hop=hop)
         if who in line_start:
             st_, m_ = line_start[who]
             icon = {'shocked': '!', 'thinking': '?', 'scared': 'sweat', 'excited': 'stars'}.get(m_)
@@ -883,10 +1389,9 @@ def mascot_layer(cv, t, sc):
             age = t - st_
             if icon and age < 1.1:
                 k_ = ease(age / 0.18) * (1 - clamp((age - 0.85) / 0.25))
-                react_icon(cv, icon, x + (40 if who == 'terra' else -40), y - r - 55 - 20 * ease(age / 0.5), k_, k_)
-        if kind not in ('brand', 'cta'):
-            nm = CHAR[who]['name']
-            text(cv, nm, x, y + r + 44, 28, CHAR[who]['hi'], 0.9, 'Black', spacing=3)
+                react_icon(cv, icon, x + (40 if who == 'terra' else -40), y - r * 1.3 - 55 - 20 * ease(age / 0.5), k_, k_)
+        if kind not in ('brand', 'cta') and idx <= 1:
+            text(cv, CHAR[who]['name'], x, y + r * 1.5 + 40, 28, CHAR[who]['hi'], 0.9, 'Black', spacing=3)
 
 
 def portal_ring(cv, x, y, rad, t, a):
@@ -1084,6 +1589,7 @@ def render_scene(args):
     setup_state(cfg)
     skia = S['skia']
     sc = cfg['scenes'][i]
+    sc['_fx'] = scene_fx(sc)
     fn = SCENES.get(str(sc.get('type', 'fact')).lower(), sc_fact)
     surf = skia.Surface(W, H)
     n = int(round(D * FPS))
@@ -1109,7 +1615,9 @@ def render_scene(args):
         with surf as cv:
             cv.clear(BG)
             cv.save(); camera(cv, t, D, kind); fn(cv, t, D, sc); cv.restore()
+            fx_layer(cv, t, sc)
             mascot_layer(cv, t, sc)
+            fx_layer(cv, t, sc, front=True)
             captions(cv, t, sc)
             if portal:
                 portal_wipe(cv, t)
@@ -1131,6 +1639,7 @@ def still(cfg, i, D, t, path):
     setup_state(cfg)
     skia = S['skia']
     sc = cfg['scenes'][i]
+    sc['_fx'] = scene_fx(sc)
     fn = SCENES.get(str(sc.get('type', 'fact')).lower(), sc_fact)
     surf = skia.Surface(W, H)
     S['bgimg'] = S['bgL'] = S['bgR'] = None
@@ -1142,7 +1651,9 @@ def still(cfg, i, D, t, path):
     with surf as cv:
         cv.clear(BG)
         cv.save(); camera(cv, t, D, str(sc.get('type', ''))); fn(cv, t, D, sc); cv.restore()
+        fx_layer(cv, t, sc)
         mascot_layer(cv, t, sc)
+        fx_layer(cv, t, sc, front=True)
         captions(cv, t, sc)
     surf.makeImageSnapshot().save(path, skia.kPNG)
 

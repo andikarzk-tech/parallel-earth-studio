@@ -20,7 +20,7 @@ RULES
 - Optional per scene: "action" for both hosts, one of shiver | sweat | jump | tremble | float | dizzy (e.g. float when gravity disappears, shiver in ice ages). Optional "transition":"portal" on the scene where the story jumps into Para's world (usually scene 2).
 - Never name real living people. No politics, no violence details.
 - "head" = 1-3 SHORT uppercase lines (max 3 words each). Wrap ONE line in *stars* to highlight it, e.g. ["THE OCEANS","*RISE*"].
-- Use at least 6 different scene types, including exactly one "split". Do not repeat the same type more than twice.
+- Use at least 6 different scene types, including exactly one "split" and 1-2 "prop". Do not repeat the same type more than twice.
 - Pick "accent" from: orange, red, green, purple, cyan, yellow. Pick "style" from: space, grid, dust. Vary them between videos.
 
 JSON SHAPE
@@ -47,10 +47,18 @@ SCENE TYPES (every scene needs "type" and "lines")
 12. cta: {"type":"cta","lines":[...],"head":["WHICH EARTH","*WOULD YOU PICK?*"],"a":"Endless summer","b":"Endless night"}
 13. split: {"type":"split","lines":[...],"head":["SAME PLANET","*DIFFERENT RULES*"],"left_name":"Our Earth","left_value":"24 hours","right_name":"Para's Earth","right_value":"1 year","bg_left":"sunrise city timelapse","bg_right":"desert heat haze"}
     (side-by-side comparison with real footage on each half; use exactly ONE split scene per video, usually scene 2 or 3)
+14. prop: {"type":"prop","lines":[...],"head":["DAY ONE","*FIRE MOUNTAINS*"],"prop":"volcano","label":"1,350 VOLCANOES","bg":""}
+    (a big animated illustration of what is happening; "prop" is one of: volcano, clock, planet_crack, tornado, rocket, tree, tsunami, ice, heart, brain, city, thermometer.
+     Use 1-2 prop scenes per video, only where the prop clearly matches the dialogue: clock = time/years/days, thermometer = temperature, heart/brain = human body,
+     city = cities/people/lights, tree = plants/forests, rocket = space travel, planet_crack = the planet breaking, ice = freezing, tsunami = oceans/floods)
+
+WEATHER EFFECTS (optional "fx" on any scene, 2-4 scenes per video, only when it matches the dialogue)
+- "fx": one of rain | storm | snow | embers | meteors | bubbles | wind | ash
+- rain/storm makes the hosts hold umbrellas, snow makes them shiver, embers makes them sweat, wind makes them lean. Use "fx":"none" to switch effects off on a scene.
 
 EXAMPLE OF ONE SCENE
 {"type":"counter","bg":"","head":["YOUR WEIGHT","*DOUBLES*"],"from":70,"to":140,"suffix":" kg","label":"your weight","lines":[{"who":"para","mood":"happy","text":"Over here, everyone weighs twice as much. Seventy kilos becomes one hundred forty."},{"who":"terra","mood":"scared","text":"My knees are already crying."}]}
 
-Also add a top-level key "next_topic": the NEXT TOPIC exactly as given below.
+Also add a top-level key "next_topic": the NEXT TOPIC as instructed below.
 
 Before answering, check: valid JSON, every scene has "type" and "lines", the last two scenes are brand then cta, total dialogue 175-210 words.
