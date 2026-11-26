@@ -1,0 +1,4 @@
+
+=== 2026-11-26 ===
+📈 Belajar: baru 0 video punya data penonton (perlu ≥3, umur ≥12 jam). Mesin masih mode eksplorasi.
+Today genes: [{"accent": "cyan", "style": "space", "speed": "1.1", "hook": "myth", "category": "space"}, {"accent": "green", "style": "dust", "speed": "1.05", "hook": "countdown", "category": "space"}, {"accent": "red", "style": "grid", "speed": "1.1", "hook": "countdown", "category": "animals"}, {"accent": "purple", "style": "dust", "speed": "1.15", "hook": "question", "category": "technology"}, {"accent": "green", "style": "space", "speed": "1.1", "hook": "countdown", "category": "animals"}]
