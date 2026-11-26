@@ -26,10 +26,12 @@ RULES
 JSON SHAPE
 {"title":"...","speed":1.0,"accent":"orange","style":"space","scenes":[ ... ]}
 
-REAL FOOTAGE
-- Most scenes may also have "bg": a 2-4 word English search query for real stock video footage that matches what the dialogue describes (e.g. "ocean storm waves", "city lights aerial night", "volcano eruption lava", "forest fog morning", "crowd walking street").
-- Use "bg" on about 6-8 scenes. Leave "bg" as "" on scenes whose visual is the whole planet (globe with effect wobble, split, freeze, heat, crack, shrink, grow), on counter/compare/timeline when the graphic matters more, and always on brand and cta.
-- Footage should be concrete and filmable: nature, cities, weather, space, machines. Never people's faces as the main subject, never violence.
+REAL FOOTAGE (the background must SHOW what is being explained)
+- EVERY scene except "cta" must have "bg": a 2-4 word English search query for real stock footage or a photo of exactly what the dialogue of that scene talks about
+  (e.g. lines about frozen oceans -> "frozen ocean ice"; about cities heating -> "city snow night"; about the Moon -> "full moon night sky"; about volcanoes -> "volcano eruption lava").
+- Use concrete, filmable nouns: nature, cities, weather, space, animals, machines, the human body (anatomy illustrations are fine). Avoid abstract words like "consequence" or "future".
+- The "brand" scene's "bg" shows the NEXT topic. On "split" use "bg_left" and "bg_right" instead.
+- Never people's faces as the main subject, never violence.
 
 SCENE TYPES (every scene needs "type" and "lines")
 1. title: {"type":"title","lines":[...],"head":["WHAT IF THE","*MOON*","DISAPPEARED?"],"visual":"earth|moon|sun|mars|twin","effect":"spin|pulse|vanish"}

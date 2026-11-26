@@ -1598,6 +1598,13 @@ def camera(cv, t, D, kind):
 
 
 def open_bg(path, D, w=W, h=H):
+    if path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+        dd = D + 0.5
+        vf = (f"scale={int(w * 1.18)}:{int(h * 1.18)}:force_original_aspect_ratio=increase,"
+              f"crop={w}:{h}:x='(iw-{w})*(0.15+0.7*t/{dd:.2f})':y='(ih-{h})*(0.5+0.25*sin(t/1.7))',fps={FPS},format=rgba")
+        cmd = ['ffmpeg', '-loglevel', 'error', '-loop', '1', '-framerate', str(FPS), '-i', path, '-t', f'{dd:.2f}',
+               '-vf', vf, '-f', 'rawvideo', '-']
+        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     cmd = ['ffmpeg', '-loglevel', 'error', '-stream_loop', '-1', '-i', path, '-t', f'{D + 0.5:.2f}', '-an',
            '-vf', f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps={FPS},format=rgba', '-f', 'rawvideo', '-']
     return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -1828,83 +1835,84 @@ def pixabay_pick(key, q, used):
     return None, None
 
 
-def fetch_backgrounds(scenes, work, log=print):
-    key = os.environ.get('PEXELS_API_KEY', '').strip()
+def pixabay_image(key, q, used):
+    """Photo fallback when no video matches: returns (id, url)."""
+    import requests
+    for params in ({'orientation': 'vertical'}, {}):
+        for qq in (q, ' '.join(q.split()[:2])):
+            r = requests.get('https://pixabay.com/api/', timeout=30,
+                             params={'key': key, 'q': qq[:100], 'image_type': 'photo', 'per_page': 20, 'safesearch': 'true', **params})
+            hits = [h for h in r.json().get('hits', []) if h['id'] not in used and h.get('largeImageURL')]
+            if hits:
+                h = random.Random(q).choice(hits[:6])
+                return h['id'], h['largeImageURL']
+    return None, None
+
+
+def scene_query(sc, cfg_title=''):
+    """What the background should show: the scene's own 'bg', else words from its headline / text."""
+    q = str(sc.get('bg', '') or '').strip()
+    if q:
+        return q
+    parts = [str(x) for x in (sc.get('head') or [])] + [str(x) for x in (sc.get('words') or [])]
+    for k in ('big', 'label', 'body', 'prop'):
+        if sc.get(k):
+            parts.append(str(sc[k]))
+    words = re.findall(r"[A-Za-z]{3,}", ' '.join(parts).replace('*', ' '))
+    stop = {'what', 'the', 'and', 'next', 'time', 'day', 'one', 'how', 'long', 'could', 'last', 'with', 'into', 'for', 'your', 'our', 'para', 'earth'}
+    words = [w.lower() for w in words if w.lower() not in stop][:3]
+    if not words:
+        words = [w.lower() for w in re.findall(r"[A-Za-z]{3,}", cfg_title) if w.lower() not in stop][:3]
+    return ' '.join(words)
+
+
+def fetch_backgrounds(scenes, work, log=print, title=''):
+    """Every scene (except the CTA) gets real footage of what is being explained; a photo with slow pan if no video exists."""
     pkey = os.environ.get('PIXABAY_API_KEY', '').strip()
-    if not key and not pkey:
+    if not pkey:
         return
     import requests
     used = set()
 
-    def grab(q, path):
-        if key:
-            return False
+    def grab(q, base):
         vid, url = pixabay_pick(pkey, q, used)
+        ext = '.mp4'
         if not url:
-            return False
+            vid, url = pixabay_image(pkey, q, used)
+            ext = '.jpg'
+        if not url:
+            return None, None
+        path = base + ext
         with requests.get(url, stream=True, timeout=120) as dl:
             dl.raise_for_status()
             with open(path, 'wb') as fh:
                 for chunk in dl.iter_content(1 << 20):
                     fh.write(chunk)
         used.add(vid)
-        return True
+        return path, ('video' if ext == '.mp4' else 'photo') + f' {vid}'
     for i, sc in enumerate(scenes):
-        if str(sc.get('type', '')).lower() == 'split':
+        kind = str(sc.get('type', '')).lower()
+        if kind == 'split':
             for side, k_ in (('bg_left', '_bgL'), ('bg_right', '_bgR')):
-                q = str(sc.get(side, '') or '').strip()
-                if q:
-                    try:
-                        pth = os.path.join(work, f'bg_{i+1:02d}_{side}.mp4')
-                        if grab(q, pth):
-                            sc[k_] = pth; log(f'  split {side} "{q}": ok')
-                    except Exception as e:
-                        log(f'  split {side} "{q}" failed: {str(e)[:100]}')
+                q = str(sc.get(side, '') or '').strip() or scene_query(sc, title)
+                try:
+                    pth, info = grab(q, os.path.join(work, f'bg_{i+1:02d}_{side}'))
+                    if pth:
+                        sc[k_] = pth; log(f'  split {side} "{q}": {info}')
+                except Exception as e:
+                    log(f'  split {side} "{q}" failed: {str(e)[:100]}')
             continue
-        q = str(sc.get('bg', '') or '').strip()
-        if not q or str(sc.get('type', '')).lower() in ('brand', 'cta'):
+        if kind == 'cta' or (kind == 'brand' and not sc.get('bg')):
             continue
-        if not key:
-            try:
-                vid, url = pixabay_pick(pkey, q, used)
-                if not url:
-                    log(f'  bg "{q}": nothing found'); continue
-                path = os.path.join(work, f'bg_{i+1:02d}.mp4')
-                with requests.get(url, stream=True, timeout=120) as dl:
-                    dl.raise_for_status()
-                    with open(path, 'wb') as fh:
-                        for chunk in dl.iter_content(1 << 20):
-                            fh.write(chunk)
-                used.add(vid)
-                sc['_bg'] = path
-                log(f'  bg "{q}": pixabay video {vid}')
-            except Exception as e:
-                log(f'  bg "{q}" failed: {str(e)[:120]}')
+        q = scene_query(sc, title)
+        if not q:
             continue
         try:
-            r = requests.get('https://api.pexels.com/videos/search', headers={'Authorization': key}, timeout=30,
-                             params={'query': q, 'orientation': 'portrait', 'size': 'medium', 'per_page': 12})
-            vids = [v for v in r.json().get('videos', []) if v['id'] not in used and v.get('duration', 0) >= 4]
-            if not vids:
-                r = requests.get('https://api.pexels.com/videos/search', headers={'Authorization': key}, timeout=30,
-                                 params={'query': q, 'per_page': 12})
-                vids = [v for v in r.json().get('videos', []) if v['id'] not in used and v.get('duration', 0) >= 4]
-            if not vids:
-                log(f'  bg "{q}": nothing found'); continue
-            v = random.Random(q).choice(vids[:5])
-            files = [f for f in v['video_files'] if f.get('file_type') == 'video/mp4' and f.get('width') and f.get('height')]
-            files.sort(key=lambda f: (abs(min(f['width'], f['height']) - 1080), -f['height']))
-            if not files:
-                continue
-            path = os.path.join(work, f'bg_{i+1:02d}.mp4')
-            with requests.get(files[0]['link'], stream=True, timeout=120) as dl:
-                dl.raise_for_status()
-                with open(path, 'wb') as fh:
-                    for chunk in dl.iter_content(1 << 20):
-                        fh.write(chunk)
-            used.add(v['id'])
-            sc['_bg'] = path
-            log(f'  bg "{q}": pexels video {v["id"]}')
+            pth, info = grab(q, os.path.join(work, f'bg_{i+1:02d}'))
+            if pth:
+                sc['_bg'] = pth; log(f'  bg "{q}": {info}')
+            else:
+                log(f'  bg "{q}": nothing found')
         except Exception as e:
             log(f'  bg "{q}" failed: {str(e)[:120]}')
 
@@ -1989,7 +1997,7 @@ def build(cfg, out_dir=None, workers=2, log=print):
     total = sum(frames)
     vo = np.concatenate(segs)
     vo = np.pad(vo, (0, max(0, int(total * SR) - len(vo))))[:int(total * SR)]
-    fetch_backgrounds(scenes, work, log)
+    fetch_backgrounds(scenes, work, log, str(cfg.get('title', '')))
     for j, sc in enumerate(scenes):
         sc['_idx'] = j
         sc['_portal'] = S_duo_portal(scenes, j)
