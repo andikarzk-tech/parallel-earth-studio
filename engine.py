@@ -638,7 +638,7 @@ def scene_fx(sc):
     fx = str(sc.get('fx', '') or '').lower().strip()
     if fx in FX_LIST:
         return fx
-    if fx == 'none':
+    if fx == 'none' or str(sc.get('type', '')).lower() in ('brand', 'cta', 'fact'):
         return ''
     eff = str(sc.get('effect', '')).lower()
     if eff == 'freeze':
@@ -648,7 +648,7 @@ def scene_fx(sc):
     txt = ' '.join([str(sc.get('bg', ''))] + [str(l.get('text', '')) for l in (sc.get('lines') or []) if isinstance(l, dict)]
                    + [str(x) for x in (sc.get('head') or [])]).lower()
     for name, words in FX_WORDS:
-        if any(w in txt for w in words):
+        if any(re.search(r'\b' + re.escape(w.strip()), txt) for w in words):
             return name
     return ''
 
