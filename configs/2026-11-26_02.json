@@ -3142,5 +3142,10 @@
  },
  "min_seconds": 66,
  "yt_id": "4ak9ebIk0_Q",
- "publish_at": "2026-11-27T07:00"
+ "publish_at": "2026-11-27T07:00",
+ "stats": {
+  "views": 0,
+  "published": "2026-11-27T00:00:08",
+  "checked": "2026-11-27T03:35"
+ }
 }
