@@ -605,10 +605,35 @@ def compile_run(cid):
     return 1
 
 
+def preview_run(cid):
+    """One test video: not uploaded to YouTube, topic not used up. A small copy is kept at configs/preview/latest.mp4."""
+    models = pick_model()
+    state, brief, _ = learn_from_data(CONF_DIR)
+    genes = pick_genes(state)
+    cfg = ask_gemini(models, done_topics(), genes, brief, None, genes['category'])
+    cfg = polish(models, cfg)
+    cfg['genes'] = genes
+    cfg['accent'], cfg['style'] = genes['accent'], genes['style']
+    cfg['min_seconds'] = MIN_SECONDS
+    cfg['speed'] = float(genes['speed'])
+    log(f'[preview] {cfg["title"]} | genes {genes}')
+    path = engine.build(cfg, OUT, workers=2, log=log)
+    keep = os.path.join(CONF_DIR, 'preview')
+    os.makedirs(keep, exist_ok=True)
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', path, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '27',
+                    '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', os.path.join(keep, 'latest.mp4')], check=True)
+    if TG and cid:
+        tg_send(cid, path, cfg, 1, None)
+        tg_text(cid, '🧪 PREVIEW: video uji tampilan, TIDAK diunggah ke YouTube.')
+    return 1
+
+
 def main():
     cid = chat_id() if TG else ''
     log('telegram chat:', 'found' if cid else 'not set', '| mode:', MODE, '| WIB', f'{WIB:%A %Y-%m-%d}', '| youtube:', 'on' if YT_ON else 'off')
     made = 0
+    if MODE == 'preview':
+        made += preview_run(cid)
     if MODE in ('auto', 'daily', 'both'):
         made += daily_run(cid)
     if MODE in ('compile', 'both') or (MODE == 'auto' and WIB.weekday() == 6):

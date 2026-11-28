@@ -243,7 +243,7 @@ def labels(cv, t, sc, y=1330, start=0.6):
     lab, sub = str(sc.get('label', '') or ''), str(sc.get('sublabel', '') or '')
     if lab:
         size = fit_size([lab.upper()], 960, 96)
-        text(cv, lab.upper(), W / 2, y, size, S['accent'], k)
+        text(cv, count_up(lab.upper(), ease((t - start) / 1.1)), W / 2, y, size, S['accent'], k)
     if sub:
         text(cv, sub, W / 2, y + 62, 42, 0xFFC9D0EA if has_bg() else MUTED, k, 'SemiBold')
 
@@ -519,7 +519,7 @@ def sc_fact(cv, t, D, sc):
     y0 = 1000 - (len(lines) - 1) * size * 0.55
     for j, l in enumerate(lines):
         kk = ease((t - 0.2 - j * 0.12) / 0.45)
-        text(cv, l, 540, y0 + j * size * 1.12 + (1 - kk) * 30, size, WHITE if j % 2 == 0 else S['accent'], kk)
+        text(cv, count_up(l, ease((t - 0.2) / 1.1)), 540, y0 + j * size * 1.12 + (1 - kk) * 30, size, WHITE if j % 2 == 0 else S['accent'], kk)
     if sc.get('sublabel'):
         text(cv, str(sc['sublabel']), 540, y0 + len(lines) * size * 1.12 + 60, 44, MUTED, ease((t - 0.8) / 0.5), 'SemiBold')
     headline(cv, sc.get('head'), t, 400, 96)
@@ -978,43 +978,134 @@ def ease_back(x, s=1.7):
 
 
 def headline(cv, head, t, y0=430, maxsize=108):
-    """Kinetic headline: words pop in one by one with overshoot; accent lines get a marker swipe behind them."""
+    """Kinetic headline on a glass panel: panel springs open, border draws itself, words slam in, accent words send a
+    shockwave, then a light sweep passes over the panel."""
     skia = S['skia']
     lines = parse_head(head)
     if not lines:
         return
-    size = fit_size([l for l, _ in lines], 960, maxsize)
+    size = fit_size([l for l, _ in lines], 900, maxsize)
     gap = size * 1.14
     f = font(size, 'Black')
     sp = f.measureText(' ')
-    wi = 0
-    for i, (s, c) in enumerate(lines):
-        y = y0 + i * gap
+    acc = S['accent']
+    rows = []
+    for s, c in lines:
         words = s.split()
         widths = [f.measureText(w.strip('*')) for w in words]
-        total = sum(widths) + sp * (len(words) - 1)
-        if c != WHITE:  # marker swipe behind the accent line
-            k = ease((t - 0.15 - i * 0.1) / 0.35)
+        rows.append((s, c, words, widths, sum(widths) + sp * (len(words) - 1)))
+    pw = max(r[4] for r in rows) + size * 0.9
+    top, bot = y0 - size * 1.05, y0 + (len(rows) - 1) * gap + size * 0.45
+    # glass panel
+    kp = ease_back(clamp(t / 0.32), 1.3)
+    if kp > 0:
+        hw = pw / 2 * kp
+        rect = skia.Rect(W / 2 - hw, top, W / 2 + hw, bot)
+        rr = skia.RRect.MakeRectXY(rect, 34, 34)
+        cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(rect.left() + 10, top + 14, rect.right() + 10, bot + 14), 34, 34), paint(0xFF000000, 0.35))
+        cv.drawRRect(rr, paint(0xFF0A0F24, 0.72))
+        per = 2 * (rect.width() + rect.height())
+        kb = ease((t - 0.1) / 0.55)
+        if kb > 0:
+            bp = paint(acc, 0.95, stroke=6)
+            bp.setPathEffect(skia.DashPathEffect.Make([per * kb, per], 0))
+            cv.drawRRect(rr, bp)
+        # light sweep
+        ks = (t - 0.85) / 0.6
+        if 0 < ks < 1:
+            cv.save(); cv.clipRRect(rr, skia.ClipOp.kIntersect, True)
+            x = rect.left() - 200 + (rect.width() + 400) * ks
+            band = skia.Path(); band.moveTo(x, top - 20); band.lineTo(x + 90, top - 20); band.lineTo(x - 30, bot + 20); band.lineTo(x - 120, bot + 20); band.close()
+            cv.drawPath(band, paint(WHITE, 0.16))
+            cv.restore()
+    wi = 0
+    for i, (s, c, words, widths, total) in enumerate(rows):
+        y = y0 + i * gap
+        if c != WHITE:  # marker underline under the accent line
+            k = ease((t - 0.35 - i * 0.1) / 0.35)
             if k > 0:
-                pad = size * 0.18
-                r = skia.Rect(W / 2 - total / 2 - pad, y - size * 0.82, W / 2 - total / 2 - pad + (total + 2 * pad) * k, y + size * 0.2)
-                cv.drawRRect(skia.RRect.MakeRectXY(r, size * 0.16, size * 0.16), paint(c, 0.22))
-                cv.drawRect(skia.Rect(r.left(), y + size * 0.12, r.right(), y + size * 0.2), paint(c, 0.9))
+                cv.drawRect(skia.Rect(W / 2 - total / 2, y + size * 0.13, W / 2 - total / 2 + total * k, y + size * 0.22), paint(c, 0.95))
         x = W / 2 - total / 2
         for w, wd in zip(words, widths):
             wc = c
             if w.startswith('*') or w.endswith('*'):
-                wc = S['accent']
+                wc = acc
             w = w.strip('*')
-            k = clamp((t - wi * 0.055) / 0.32)
+            t0 = 0.12 + wi * 0.07
+            k = clamp((t - t0) / 0.22)
+            cx_, cy_ = x + wd / 2, y - size * 0.35
             if k > 0:
-                sc_ = ease_back(k)
-                cv.save(); cv.translate(x + wd / 2, y - size * 0.35); cv.rotate((1 - ease(k)) * -8); cv.scale(sc_, sc_)
-                cv.drawString(w, -wd / 2 + 4, size * 0.35 + 5, f, paint(0xFF000000, 0.35 * ease(k)))
-                cv.drawString(w, -wd / 2, size * 0.35, f, paint(wc, ease(k)))
+                e = ease(k)
+                if k < 1:  # motion trail
+                    for g in (2, 1):
+                        sg = 1 + (1 - e) * 1.2 * (1 + g * 0.35)
+                        cv.save(); cv.translate(cx_, cy_); cv.scale(sg, sg)
+                        cv.drawString(w, -wd / 2, size * 0.35, f, paint(wc, 0.12 * e))
+                        cv.restore()
+                sc_ = 1 + (1 - e) * 1.2 + (0.08 * math.sin(clamp((t - t0 - 0.22) / 0.25) * math.pi) if k >= 1 else 0)
+                cv.save(); cv.translate(cx_, cy_); cv.scale(sc_, sc_)
+                cv.drawString(w, -wd / 2 + 4, size * 0.35 + 6, f, paint(0xFF000000, 0.45 * e))
+                cv.drawString(w, -wd / 2, size * 0.35, f, paint(wc, e))
                 cv.restore()
+                if wc != WHITE:  # shockwave when an accent word lands
+                    ks = (t - t0 - 0.2) / 0.5
+                    if 0 < ks < 1:
+                        cv.drawCircle(cx_, cy_, wd * 0.35 + ks * wd * 0.9, paint(acc, (1 - ks) * 0.8, stroke=10 * (1 - ks) + 1))
+                        for j in range(8):
+                            an = j * math.pi / 4 + 0.3
+                            r0, r1 = wd * 0.4 + ks * wd * 0.6, wd * 0.4 + ks * wd * 0.9
+                            cv.drawLine(cx_ + math.cos(an) * r0, cy_ + math.sin(an) * r0 * 0.6, cx_ + math.cos(an) * r1, cy_ + math.sin(an) * r1 * 0.6,
+                                        paint(acc, 1 - ks, stroke=6))
             x += wd + sp
             wi += 1
+
+
+def count_up(s, k):
+    """Roll every number in s from 0 up to its value (k = 0..1). Years are left alone."""
+    if k >= 1:
+        return s
+
+    def rep(m):
+        raw = m.group(0)
+        if re.fullmatch(r'(1[5-9]|20)\d\d', raw):
+            return raw
+        v = float(raw.replace(',', ''))
+        dec = len(raw.split('.')[1]) if '.' in raw else 0
+        cur = v * k
+        return f'{cur:,.{dec}f}' if ',' in raw else f'{cur:.{dec}f}'
+    return re.sub(r'\d[\d,]*(?:\.\d+)?', rep, s)
+
+
+def hud(cv, t, D, sc):
+    """Motion-graphics HUD on top of every scene: video progress bar, scene counter, animated corner brackets."""
+    skia = S['skia']
+    kind = str(sc.get('type', '')).lower()
+    acc = S['accent']
+    T, t0, n, idx = sc.get('_T'), sc.get('_t0'), sc.get('_n'), int(sc.get('_idx', 0))
+    if T:
+        p = clamp((float(t0) + t) / float(T))
+        cv.drawRect(skia.Rect(0, 0, W, 12), paint(WHITE, 0.18))
+        cv.drawRect(skia.Rect(0, 0, W * p, 12), paint(acc, 1))
+        cv.drawCircle(W * p, 6, 11, paint(WHITE, 1))
+        cv.drawCircle(W * p, 6, 22 + 6 * math.sin(t * 8), paint(acc, 0.35))
+    if n and kind not in ('brand', 'cta'):
+        k = ease((t - 0.1) / 0.4)
+        num = f'{idx + 1:02d}'
+        text(cv, num, 956 - font(40, 'Black').measureText(num), 166, 40, acc, k, 'Black', 'left')
+        text(cv, f'/{int(n):02d}', 960, 166, 30, WHITE, 0.7 * k, 'Bold', 'left')
+    if kind in ('brand', 'cta', 'title'):
+        return
+    k = ease_back(clamp(t / 0.45), 1.4)
+    off = (1 - k) * 90
+    L, x0, x1, y0, y1 = 70, 34, W - 34, 214, 1290
+    bp = paint(acc, 0.9 * clamp(t / 0.2), stroke=7)
+    for sx, sy, x, y in ((1, 1, x0 - off, y0 - off), (-1, 1, x1 + off, y0 - off), (1, -1, x0 - off, y1 + off), (-1, -1, x1 + off, y1 + off)):
+        pth = skia.Path(); pth.moveTo(x, y + sy * L); pth.lineTo(x, y); pth.lineTo(x + sx * L, y)
+        cv.drawPath(pth, bp)
+    # scanning line through the frame
+    ky = (t * 0.35) % 1
+    yy = y0 + (y1 - y0) * ky
+    cv.drawRect(skia.Rect(x0, yy, x1, yy + 3), paint(acc, 0.12))
 
 
 # ---- pictogram icons (drawn in a 100x100 box centred on 0,0)
@@ -1140,7 +1231,7 @@ def sc_icons(cv, t, D, sc):
         cv.restore()
     big = str(sc.get('big', '') or (f'{hi} OUT OF {total}' if hi else '')).upper()
     if big:
-        text(cv, big, 540, 690 + rows * cell + 95, 92, S['accent'], ease((t - lit_t) / 0.4), 'Black')
+        text(cv, count_up(big, ease((t - lit_t) / (0.08 * max(hi, 1) + 0.3))), 540, 690 + rows * cell + 95, 92, S['accent'], ease((t - lit_t) / 0.4), 'Black')
     labels(cv, t, sc, 690 + rows * cell + 180, lit_t + 0.3)
     headline(cv, sc.get('head'), t, 400, 100)
     brand_tag(cv)
@@ -1153,7 +1244,7 @@ TRANSITIONS = ['slice', 'iris', 'glitch', 'bars', 'shutter']
 
 def transition(cv, kind, t):
     skia = S['skia']
-    d = 0.38
+    d = 0.45
     if t >= d:
         return
     q = ease_io(t / d)
@@ -1995,6 +2086,7 @@ def render_scene(args):
             mascot_layer(cv, t, sc)
             fx_layer(cv, t, sc, front=True)
             captions(cv, t, sc)
+            hud(cv, t, D, sc)
             if portal:
                 portal_wipe(cv, t)
             if idx > 0 and not portal and trans != 'glitch':
@@ -2033,6 +2125,7 @@ def still(cfg, i, D, t, path):
         mascot_layer(cv, t, sc)
         fx_layer(cv, t, sc, front=True)
         captions(cv, t, sc)
+        hud(cv, t, D, sc)
     surf.makeImageSnapshot().save(path, skia.kPNG)
 
 
@@ -2290,10 +2383,11 @@ def build(cfg, out_dir=None, workers=2, log=print):
     vo = np.concatenate(segs)
     vo = np.pad(vo, (0, max(0, int(total * SR) - len(vo))))[:int(total * SR)]
     fetch_backgrounds(scenes, work, log, str(cfg.get('title', '')))
+    starts = np.cumsum([0] + frames[:-1])
     for j, sc in enumerate(scenes):
         sc['_idx'] = j
         sc['_portal'] = S_duo_portal(scenes, j)
-    starts = np.cumsum([0] + frames[:-1])
+        sc['_t0'], sc['_T'], sc['_n'] = float(starts[j]), float(total), len(scenes)
     # ambient pad, root note varies per title
     root = [49.0, 55.0, 58.3, 61.7, 65.4][int(hashlib.md5(name.encode()).hexdigest()[:2], 16) % 5]
     tt = np.arange(len(vo)) / SR
