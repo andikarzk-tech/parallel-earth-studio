@@ -26,8 +26,20 @@ RULES
 JSON SHAPE
 {"title":"...","speed":1.0,"accent":"orange","style":"space","scenes":[ ... ]}
 
-REAL FOOTAGE (the background must SHOW what is being explained)
-- EVERY scene except "cta" must have "bg": a 2-4 word English search query for real stock footage or a photo of exactly what the dialogue of that scene talks about
+EVENT ART (most important visual rule: the viewer must SEE the event happening)
+- EVERY scene except "cta" must have "art": one English sentence (15-35 words) describing a dramatic cartoon illustration of
+  EXACTLY the moment the dialogue of that scene explains, as if it is happening right now in Para's world.
+  Show the action and its consequence, exaggerated and exciting, easy to understand in one second.
+  Good: "giant icy rings arching across the sky above a small town, long shadow bands falling over the streets, people pointing up"
+  Good: "the Moon cracking in half above a calm ocean at night, glowing pieces drifting apart, huge waves rising toward a lighthouse"
+  Bad: "rings" / "climate consequences" / "a beautiful planet" (too vague, nothing happening).
+- Describe places, objects, nature, animals, small distant people. No text or signs in the picture, no famous people, no brands, no gore.
+- Keep one visual world through the video (same town, same planet look) so the story feels continuous.
+- On "split" use "art_left" (our normal Earth) and "art_right" (Para's changed Earth) instead of "art".
+- The "brand" scene's "art" shows the NEXT topic.
+
+REAL FOOTAGE (backup when the art cannot be made)
+- EVERY scene except "cta" must ALSO have "bg": a 2-4 word English search query for real stock footage or a photo of exactly what the dialogue of that scene talks about
   (e.g. lines about frozen oceans -> "frozen ocean ice"; about cities heating -> "city snow night"; about the Moon -> "full moon night sky"; about volcanoes -> "volcano eruption lava").
 - Use concrete, filmable nouns: nature, cities, weather, space, animals, machines, the human body (anatomy illustrations are fine). Avoid abstract words like "consequence" or "future".
 - The "brand" scene's "bg" shows the NEXT topic. On "split" use "bg_left" and "bg_right" instead.
@@ -47,7 +59,7 @@ SCENE TYPES (every scene needs "type" and "lines")
 10. fact: {"type":"fact","lines":[...],"kicker":"THE TWIST","big":"Short punchy statement","sublabel":"small supporting fact"}
 11. brand: {"type":"brand","lines":[...],"head":["NEXT TIME","*<SHORT NEXT TOPIC>*"]}
 12. cta: {"type":"cta","lines":[...],"head":["WHICH EARTH","*WOULD YOU PICK?*"],"a":"Endless summer","b":"Endless night"}
-13. split: {"type":"split","lines":[...],"head":["SAME PLANET","*DIFFERENT RULES*"],"left_name":"Our Earth","left_value":"24 hours","right_name":"Para's Earth","right_value":"1 year","bg_left":"sunrise city timelapse","bg_right":"desert heat haze"}
+13. split: {"type":"split","lines":[...],"head":["SAME PLANET","*DIFFERENT RULES*"],"left_name":"Our Earth","left_value":"24 hours","right_name":"Para's Earth","right_value":"1 year","bg_left":"sunrise city timelapse","bg_right":"desert heat haze","art_left":"...","art_right":"..."}
     (side-by-side comparison with real footage on each half; use exactly ONE split scene per video, usually scene 2 or 3)
 14. prop: {"type":"prop","lines":[...],"head":["DAY ONE","*FIRE MOUNTAINS*"],"prop":"volcano","label":"1,350 VOLCANOES","bg":""}
     (a big animated illustration of what is happening; "prop" is one of: volcano, clock, planet_crack, tornado, rocket, tree, tsunami, ice, heart, brain, city, thermometer.

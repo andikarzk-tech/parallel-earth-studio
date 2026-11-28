@@ -275,6 +275,10 @@ def polish(models, cfg):
         better = try_models(models[:3], EDITOR + '\n\n' + json.dumps(cfg, ensure_ascii=False))
         if better and len(better.get('scenes', [])) == len(cfg['scenes']):
             better.update({k: v for k, v in keep.items() if v})
+            for a, b in zip(cfg['scenes'], better['scenes']):   # never lose the visual fields
+                for k in ('art', 'art_left', 'art_right', 'bg', 'bg_left', 'bg_right', 'prop', 'fx'):
+                    if a.get(k) and not b.get(k):
+                        b[k] = a[k]
             log('polish: improved script accepted')
             return better
     except Exception as e:

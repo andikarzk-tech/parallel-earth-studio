@@ -3,7 +3,7 @@ One JSON config -> Kokoro voice-over + motion-graphic scenes + ambient music -> 
 Usage: python3 engine.py config.json   (or import and call build(cfg_dict))
 Env: PE_MODEL_DIR (kokoro-v1.0.onnx, voices-v1.0.bin), PE_FONT_DIR (InterDisplay-*.otf), PE_OUT_DIR
 """
-import os, sys, json, math, random, re, subprocess, hashlib
+import os, sys, json, math, random, re, subprocess, hashlib, time
 import numpy as np
 
 W, H, FPS = 1080, 1920, 30
@@ -992,7 +992,7 @@ def headline(cv, head, t, y0=430, maxsize=108):
     rows = []
     for s, c in lines:
         words = s.split()
-        widths = [f.measureText(w.strip('*')) for w in words]
+        widths = [f.measureText(w.replace('*', '')) for w in words]
         rows.append((s, c, words, widths, sum(widths) + sp * (len(words) - 1)))
     pw = max(r[4] for r in rows) + size * 0.9
     top, bot = y0 - size * 1.05, y0 + (len(rows) - 1) * gap + size * 0.45
@@ -1027,10 +1027,8 @@ def headline(cv, head, t, y0=430, maxsize=108):
                 cv.drawRect(skia.Rect(W / 2 - total / 2, y + size * 0.13, W / 2 - total / 2 + total * k, y + size * 0.22), paint(c, 0.95))
         x = W / 2 - total / 2
         for w, wd in zip(words, widths):
-            wc = c
-            if w.startswith('*') or w.endswith('*'):
-                wc = acc
-            w = w.strip('*')
+            wc = acc if '*' in w else c
+            w = w.replace('*', '')
             t0 = 0.12 + wi * 0.07
             k = clamp((t - t0) / 0.22)
             cx_, cy_ = x + wd / 2, y - size * 0.35
@@ -1976,6 +1974,16 @@ def camera(cv, t, D, kind):
 
 
 def open_bg(path, D, w=W, h=H):
+    if os.path.basename(path).startswith('art_'):
+        dd = D + 0.5
+        vf = (f"scale=w=-2:h='{h}*(1.06+0.16*t/{dd:.2f})':eval=frame,"
+              f"crop={w}:{h}:'(iw-{w})/2+(iw-{w})*0.3*sin(t/2.3)':'(ih-{h})/2',fps={FPS},format=rgba")
+        if w > h:
+            vf = (f"scale=w='{w}*(1.06+0.16*t/{dd:.2f})':h=-2:eval=frame,"
+                  f"crop={w}:{h}:'(iw-{w})/2':'(ih-{h})/2+(ih-{h})*0.3*sin(t/2.3)',fps={FPS},format=rgba")
+        cmd = ['ffmpeg', '-loglevel', 'error', '-loop', '1', '-framerate', str(FPS), '-i', path, '-t', f'{dd:.2f}',
+               '-vf', vf, '-f', 'rawvideo', '-']
+        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     if path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
         dd = D + 0.5
         vf = (f"scale={int(w * 1.18)}:{int(h * 1.18)}:force_original_aspect_ratio=increase,"
@@ -2251,15 +2259,72 @@ def scene_query(sc, cfg_title=''):
     return ' '.join(words)
 
 
+ART_STYLE = ('vibrant 3D cartoon illustration, playful animated movie style, dramatic cinematic lighting, saturated colors, '
+             'exaggerated epic scale, one clear main subject in the middle of the frame, deep background with atmosphere, '
+             'no text, no letters, no words, no logos, no watermark, no close-up human faces')
+_ART_LAST = [0.0]
+
+
+def ai_art(prompt, path, seed, log=print):
+    """Illustration of the event being explained. Cloudflare Workers AI (FLUX schnell, free 10k neurons/day) when
+    CF_ACCOUNT_ID + CF_API_TOKEN are set, otherwise Pollinations (free, no key). Returns the source name or None."""
+    import requests, base64, urllib.parse
+    full = f"{str(prompt).strip().rstrip('.')}. {ART_STYLE}"
+    acc, tok = os.environ.get('CF_ACCOUNT_ID', '').strip(), os.environ.get('CF_API_TOKEN', '').strip()
+    if acc and tok:
+        try:
+            r = requests.post(f'https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/black-forest-labs/flux-1-schnell',
+                              headers={'Authorization': f'Bearer {tok}'}, json={'prompt': full[:2000], 'steps': 6, 'seed': seed}, timeout=120)
+            img = (r.json().get('result') or {}).get('image')
+            if img:
+                open(path, 'wb').write(base64.b64decode(img))
+                return 'cloudflare'
+            log(f'    cloudflare: {r.text[:160]}')
+        except Exception as e:
+            log(f'    cloudflare failed: {str(e)[:120]}')
+    pk = os.environ.get('POLLINATIONS_TOKEN', '').strip()
+    url = ('https://image.pollinations.ai/prompt/' + urllib.parse.quote(full[:1200]) +
+           f'?width=768&height=1344&seed={seed}&nologo=true&model=flux&private=true')
+    hdr = {'Authorization': f'Bearer {pk}'} if pk else {}
+    gap = 6 if pk else 16
+    for attempt in range(4):
+        wait = _ART_LAST[0] + gap - time.time()
+        if wait > 0:
+            time.sleep(wait)
+        _ART_LAST[0] = time.time()
+        try:
+            r = requests.get(url, headers=hdr, timeout=180)
+            if r.status_code == 200 and r.headers.get('content-type', '').startswith('image') and len(r.content) > 30000:
+                open(path, 'wb').write(r.content)
+                return 'pollinations'
+            log(f'    pollinations {r.status_code} ({len(r.content)} bytes)')
+        except Exception as e:
+            log(f'    pollinations failed: {str(e)[:120]}')
+        time.sleep(gap * (attempt + 1))
+    return None
+
+
 def fetch_backgrounds(scenes, work, log=print, title=''):
-    """Every scene (except the CTA) gets real footage of what is being explained; a photo with slow pan if no video exists."""
-    pkey = os.environ.get('PIXABAY_API_KEY', '').strip()
-    if not pkey:
-        return
+    """Every scene (except the CTA) gets a picture of what is being explained: first an AI illustration of the event
+    (scene 'art'), else real footage, else a photo with slow pan."""
     import requests
+    pkey = os.environ.get('PIXABAY_API_KEY', '').strip()
+    use_art = os.environ.get('PE_ART', '1') != '0'
     used = set()
 
-    def grab(q, base):
+    def art(prompt, base, seed):
+        if not (use_art and prompt):
+            return None, None
+        pth = os.path.join(os.path.dirname(base), 'art_' + os.path.basename(base) + '.jpg')
+        src = ai_art(prompt, pth, seed, log)
+        return (pth, f'AI art ({src})') if src else (None, None)
+
+    def grab(q, base, prompt=''):
+        pth, info = art(prompt, base, int(hashlib.md5((base + prompt).encode()).hexdigest()[:6], 16))
+        if pth:
+            return pth, info
+        if not pkey:
+            return None, None
         vid, url = pixabay_pick(pkey, q, used)
         ext = '.mp4'
         if not url:
@@ -2281,7 +2346,7 @@ def fetch_backgrounds(scenes, work, log=print, title=''):
             for side, k_ in (('bg_left', '_bgL'), ('bg_right', '_bgR')):
                 q = str(sc.get(side, '') or '').strip() or scene_query(sc, title)
                 try:
-                    pth, info = grab(q, os.path.join(work, f'bg_{i+1:02d}_{side}'))
+                    pth, info = grab(q, os.path.join(work, f'bg_{i+1:02d}_{side}'), str(sc.get('art_' + side[3:], '') or ''))
                     if pth:
                         sc[k_] = pth; log(f'  split {side} "{q}": {info}')
                 except Exception as e:
@@ -2290,10 +2355,10 @@ def fetch_backgrounds(scenes, work, log=print, title=''):
         if kind == 'cta' or (kind == 'brand' and not sc.get('bg')):
             continue
         q = scene_query(sc, title)
-        if not q:
+        if not q and not sc.get('art'):
             continue
         try:
-            pth, info = grab(q, os.path.join(work, f'bg_{i+1:02d}'))
+            pth, info = grab(q, os.path.join(work, f'bg_{i+1:02d}'), str(sc.get('art', '') or ''))
             if pth:
                 sc['_bg'] = pth; log(f'  bg "{q}": {info}')
             else:
