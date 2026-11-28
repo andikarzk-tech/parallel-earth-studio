@@ -17,9 +17,9 @@ RULES
 - Then 3-5 escalating consequences, then one surprising REAL fact about our actual world (the twist), then "brand", then "cta".
 - brand scene: first a CLIFFHANGER line by Para teasing the NEXT episode, exactly about the NEXT TOPIC given below (e.g. "Next time, Blue, I will show you a world where the Sun turns blue!"), then the last line "Welcome to Parallel Earth!".
 - cta scene: an A-or-B question for comments. Add "a" and "b" (each 1-4 words) and a line like "Would you pick A, endless summer, or B, endless night? Comment below!"
-- Optional per scene: "action" for both hosts, one of shiver | sweat | jump | tremble | float | dizzy (e.g. float when gravity disappears, shiver in ice ages). Optional "transition":"portal" on the scene where the story jumps into Para's world (usually scene 2).
+- Optional per scene: "action" for both hosts, one of shiver | sweat | jump | tremble | float | dizzy (e.g. float when gravity disappears, shiver in ice ages). Optional "transition":"portal" on the scene where the story jumps into Para's world (usually scene 2). Other scenes may set "transition" to slice | iris | glitch | bars | shutter (otherwise the engine rotates them).
 - Never name real living people. No politics, no violence details.
-- "head" = 1-3 SHORT uppercase lines (max 3 words each). Wrap ONE line in *stars* to highlight it, e.g. ["THE OCEANS","*RISE*"].
+- "head" = 1-3 SHORT uppercase lines (max 3 words each). Wrap ONE line in *stars* to highlight it, e.g. ["THE OCEANS","*RISE*"], or ONE word inside a line, e.g. ["THE OCEANS","WOULD *BOIL*"].
 - Use at least 6 different scene types, including exactly one "split" and 1-2 "prop". Do not repeat the same type more than twice.
 - Pick "accent" from: orange, red, green, purple, cyan, yellow. Pick "style" from: space, grid, dust. Vary them between videos.
 
@@ -53,6 +53,10 @@ SCENE TYPES (every scene needs "type" and "lines")
     (a big animated illustration of what is happening; "prop" is one of: volcano, clock, planet_crack, tornado, rocket, tree, tsunami, ice, heart, brain, city, thermometer.
      Use 1-2 prop scenes per video, only where the prop clearly matches the dialogue: clock = time/years/days, thermometer = temperature, heart/brain = human body,
      city = cities/people/lights, tree = plants/forests, rocket = space travel, planet_crack = the planet breaking, ice = freezing, tsunami = oceans/floods)
+15. icons: {"type":"icons","lines":[...],"head":["MOST PEOPLE","WOULD *MOVE*"],"icon":"person","total":10,"highlight":7,"big":"7 OUT OF 10","label":"OCEAN CITIES"}
+    (animated pictogram infographic: "total" icons pop in, then "highlight" of them light up. Use it for any ratio, share, count or "X out of Y" number.
+     "icon" is one of: person, house, tree, car, drop, sun, heart, bolt, fish, bird, coin, globe, plane, phone, battery, bulb. total 5-30.
+     Use 0-1 icons scene per video, only when the dialogue says a real number or ratio.)
 
 WEATHER EFFECTS (optional "fx" on any scene, 2-4 scenes per video, only when it matches the dialogue)
 - "fx": one of rain | storm | snow | embers | meteors | bubbles | wind | ash

@@ -542,15 +542,30 @@ def compile_run(cid):
     vert = engine.build(ccfg, OUT, workers=2, log=log)
     timing = json.load(open(os.path.join(os.path.dirname(vert), 'pe_work_' + engine.slug(ccfg['title']), 'timing.json')))
     wide = vert[:-4] + '_16x9.mp4'
-    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', vert, '-filter_complex',
-                    '[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,boxblur=40:2,eq=brightness=-0.3[bg];'
-                    '[0:v]scale=-2:1080[fg];[bg][fg]overlay=(W-w)/2:0,format=yuv420p',
-                    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'copy', '-movflags', '+faststart', wide], check=True)
-    # chapters
-    t, chapters = 0.0, []
+    sting, sting_d = vert[:-4] + '_sting.mp4', 0.0
+    try:
+        engine.render_sting(sting, 1920, 1080, 2.6, {'title': 'sting', 'accent': ccfg['accent'], 'scenes': [{'lines': [1]}]})
+        sting_d = 2.6
+    except Exception:
+        traceback.print_exc()
+    comp = ('[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,boxblur=40:2,eq=brightness=-0.3[bg];'
+            '[0:v]scale=-2:1080[fg];[bg][fg]overlay=(W-w)/2:0,fps=30,setsar=1,format=yuv420p')
+    if sting_d:
+        cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-i', vert, '-i', sting, '-filter_complex',
+               comp + '[v0];[1:v]fps=30,setsar=1,format=yuv420p[v1];'
+               '[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a0];'
+               '[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a1];'
+               '[v1][a1][v0][a0]concat=n=2:v=1:a=1[v][a]', '-map', '[v]', '-map', '[a]',
+               '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', wide]
+    else:
+        cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-i', vert, '-filter_complex', comp,
+               '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'copy', '-movflags', '+faststart', wide]
+    subprocess.run(cmd, check=True)
+    # chapters (first chapter must stay at 0:00, the sting belongs to it)
+    t, chapters = sting_d, []
     for sc, fr in zip(scenes, timing['frames']):
         if sc.get('chapter'):
-            chapters.append(f"{fmt_ts(t)} {sc['chapter']}")
+            chapters.append(f"{fmt_ts(t if chapters else 0)} {sc['chapter']}")
         t += fr
     title = f'{n} What If Scenarios That Would Change Earth Forever | Parallel Earth'
     desc = 'What would happen if the rules of our planet changed? ' + '\n\n' + '\n'.join(chapters) + '\n\n#whatif #science #space #parallelearth'

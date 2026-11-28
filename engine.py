@@ -123,17 +123,6 @@ def parse_head(head):
     return out
 
 
-def headline(cv, head, t, y0=430, maxsize=108):
-    lines = parse_head(head)
-    if not lines:
-        return
-    size = fit_size([l for l, _ in lines], 960, maxsize)
-    gap = size * 1.14
-    for i, (s, c) in enumerate(lines):
-        k = ease((t - i * 0.12) / 0.45)
-        text(cv, s, W / 2, y0 + i * gap + (1 - k) * 40, size, c, k)
-
-
 # ------------------------------------------------------------ backgrounds / bodies
 def has_bg():
     return S.get('bgimg') is not None
@@ -544,8 +533,7 @@ def sc_brand(cv, t, D, sc):
     if not S.get('duo'):
         twin_mark(cv, 540, 980, 1.9 + 0.25 * k, k)
     text(cv, 'WELCOME TO', 540, 1400, 54, MUTED, ease((t - 0.5) / 0.5), 'Bold', spacing=8)
-    text(cv, 'PARALLEL', 540, 1520, 130, WHITE, ease((t - 0.7) / 0.5), 'Black', spacing=6)
-    text(cv, 'EARTH', 540, 1640, 110, S['accent'], ease((t - 0.85) / 0.5), 'Black', spacing=24)
+    wordmark(cv, t - 0.6, 540, 1530, 1.0, 1.0)
     headline(cv, sc.get('head'), t)
     fade_in(cv, t)
 
@@ -983,9 +971,308 @@ def sc_prop(cv, t, D, sc):
     fade_in(cv, t)
 
 
+# ------------------------------------------------------------ motion graphics: kinetic type, pictograms, transitions, logo sting
+def ease_back(x, s=1.7):
+    x = clamp(x) - 1
+    return 1 + x * x * ((s + 1) * x + s)
+
+
+def headline(cv, head, t, y0=430, maxsize=108):
+    """Kinetic headline: words pop in one by one with overshoot; accent lines get a marker swipe behind them."""
+    skia = S['skia']
+    lines = parse_head(head)
+    if not lines:
+        return
+    size = fit_size([l for l, _ in lines], 960, maxsize)
+    gap = size * 1.14
+    f = font(size, 'Black')
+    sp = f.measureText(' ')
+    wi = 0
+    for i, (s, c) in enumerate(lines):
+        y = y0 + i * gap
+        words = s.split()
+        widths = [f.measureText(w.strip('*')) for w in words]
+        total = sum(widths) + sp * (len(words) - 1)
+        if c != WHITE:  # marker swipe behind the accent line
+            k = ease((t - 0.15 - i * 0.1) / 0.35)
+            if k > 0:
+                pad = size * 0.18
+                r = skia.Rect(W / 2 - total / 2 - pad, y - size * 0.82, W / 2 - total / 2 - pad + (total + 2 * pad) * k, y + size * 0.2)
+                cv.drawRRect(skia.RRect.MakeRectXY(r, size * 0.16, size * 0.16), paint(c, 0.22))
+                cv.drawRect(skia.Rect(r.left(), y + size * 0.12, r.right(), y + size * 0.2), paint(c, 0.9))
+        x = W / 2 - total / 2
+        for w, wd in zip(words, widths):
+            wc = c
+            if w.startswith('*') or w.endswith('*'):
+                wc = S['accent']
+            w = w.strip('*')
+            k = clamp((t - wi * 0.055) / 0.32)
+            if k > 0:
+                sc_ = ease_back(k)
+                cv.save(); cv.translate(x + wd / 2, y - size * 0.35); cv.rotate((1 - ease(k)) * -8); cv.scale(sc_, sc_)
+                cv.drawString(w, -wd / 2 + 4, size * 0.35 + 5, f, paint(0xFF000000, 0.35 * ease(k)))
+                cv.drawString(w, -wd / 2, size * 0.35, f, paint(wc, ease(k)))
+                cv.restore()
+            x += wd + sp
+            wi += 1
+
+
+# ---- pictogram icons (drawn in a 100x100 box centred on 0,0)
+def _ic_person(cv, p):
+    cv.drawCircle(0, -28, 17, p)
+    cv.drawRRect(S['skia'].RRect.MakeRectXY(S['skia'].Rect(-24, -8, 24, 44), 16, 16), p)
+
+
+def _ic_house(cv, p):
+    skia = S['skia']
+    roof = skia.Path(); roof.moveTo(-42, -4); roof.lineTo(0, -40); roof.lineTo(42, -4); roof.close(); cv.drawPath(roof, p)
+    cv.drawRect(skia.Rect(-30, -6, 30, 40), p)
+
+
+def _ic_tree(cv, p):
+    cv.drawCircle(0, -14, 30, p); cv.drawRect(S['skia'].Rect(-6, 10, 6, 42), p)
+
+
+def _ic_car(cv, p):
+    skia = S['skia']
+    cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(-44, -6, 44, 20), 10, 10), p)
+    cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(-26, -28, 22, 0), 10, 10), p)
+    cv.drawCircle(-24, 24, 11, p); cv.drawCircle(24, 24, 11, p)
+
+
+def _ic_drop(cv, p):
+    skia = S['skia']
+    d = skia.Path(); d.moveTo(0, -42); d.cubicTo(22, -10, 32, 8, 28, 20); d.cubicTo(22, 44, -22, 44, -28, 20); d.cubicTo(-32, 8, -22, -10, 0, -42); d.close()
+    cv.drawPath(d, p)
+
+
+def _ic_sun(cv, p):
+    cv.drawCircle(0, 0, 22, p)
+    for k in range(8):
+        a = k * math.pi / 4
+        cv.drawLine(math.cos(a) * 30, math.sin(a) * 30, math.cos(a) * 42, math.sin(a) * 42, S['skia'].Paint(AntiAlias=True, Color=p.getColor(), StrokeWidth=7, Style=S['skia'].Paint.kStroke_Style, StrokeCap=S['skia'].Paint.kRound_Cap))
+
+
+def _ic_heart(cv, p):
+    skia = S['skia']
+    h = skia.Path(); h.moveTo(0, 38); h.cubicTo(-56, 0, -30, -46, 0, -18); h.cubicTo(30, -46, 56, 0, 0, 38); h.close(); cv.drawPath(h, p)
+
+
+def _ic_bolt(cv, p):
+    skia = S['skia']
+    b = skia.Path(); b.moveTo(8, -44); b.lineTo(-24, 6); b.lineTo(0, 6); b.lineTo(-8, 44); b.lineTo(26, -8); b.lineTo(2, -8); b.close(); cv.drawPath(b, p)
+
+
+def _ic_fish(cv, p):
+    skia = S['skia']
+    cv.drawOval(skia.Rect(-34, -18, 22, 18), p)
+    t_ = skia.Path(); t_.moveTo(18, 0); t_.lineTo(42, -20); t_.lineTo(42, 20); t_.close(); cv.drawPath(t_, p)
+
+
+def _ic_bird(cv, p):
+    skia = S['skia']
+    b = skia.Path(); b.moveTo(-40, -6); b.quadTo(-20, -30, 0, -4); b.quadTo(20, -30, 40, -6); b.quadTo(20, -14, 0, 12); b.quadTo(-20, -14, -40, -6); b.close()
+    cv.drawPath(b, p)
+
+
+def _ic_coin(cv, p):
+    cv.drawCircle(0, 0, 36, p)
+    cv.drawCircle(0, 0, 24, S['skia'].Paint(AntiAlias=True, Color=0x55000000, StrokeWidth=6, Style=S['skia'].Paint.kStroke_Style))
+
+
+def _ic_globe(cv, p):
+    skia = S['skia']
+    st = skia.Paint(AntiAlias=True, Color=p.getColor(), StrokeWidth=6, Style=skia.Paint.kStroke_Style)
+    cv.drawCircle(0, 0, 36, st); cv.drawOval(skia.Rect(-16, -36, 16, 36), st); cv.drawLine(-36, 0, 36, 0, st)
+
+
+def _ic_plane(cv, p):
+    skia = S['skia']
+    b = skia.Path(); b.moveTo(-44, 0); b.lineTo(44, -6); b.lineTo(44, 6); b.close(); cv.drawPath(b, p)
+    w = skia.Path(); w.moveTo(-4, -2); w.lineTo(-20, -36); w.lineTo(10, -2); w.lineTo(-20, 36); w.lineTo(-4, 2); w.close(); cv.drawPath(w, p)
+
+
+def _ic_phone(cv, p):
+    skia = S['skia']
+    cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(-22, -40, 22, 40), 9, 9), p)
+    cv.drawRect(skia.Rect(-16, -30, 16, 26), skia.Paint(AntiAlias=True, Color=0x66000000))
+
+
+def _ic_battery(cv, p):
+    skia = S['skia']
+    cv.drawRRect(skia.RRect.MakeRectXY(skia.Rect(-40, -20, 34, 20), 6, 6), p); cv.drawRect(skia.Rect(34, -8, 42, 8), p)
+
+
+def _ic_bulb(cv, p):
+    skia = S['skia']
+    cv.drawCircle(0, -10, 26, p); cv.drawRect(skia.Rect(-12, 14, 12, 34), p)
+
+
+ICONS = {'person': _ic_person, 'house': _ic_house, 'tree': _ic_tree, 'car': _ic_car, 'drop': _ic_drop, 'sun': _ic_sun, 'heart': _ic_heart,
+         'bolt': _ic_bolt, 'fish': _ic_fish, 'bird': _ic_bird, 'coin': _ic_coin, 'globe': _ic_globe, 'plane': _ic_plane,
+         'phone': _ic_phone, 'battery': _ic_battery, 'bulb': _ic_bulb}
+
+
+def sc_icons(cv, t, D, sc):
+    """Pictogram infographic: a grid of icons pops in, then `highlight` of them light up in the accent colour."""
+    bg(cv, t)
+    name = str(sc.get('icon', 'person')).lower()
+    fn = ICONS.get(name, _ic_person)
+    total = int(clamp(float(sc.get('total', 10) or 10), 1, 40))
+    hi = int(clamp(float(sc.get('highlight', 3) or 0), 0, total))
+    cols = 5 if total <= 25 else 8
+    rows = (total + cols - 1) // cols
+    cell = min(170, 900 / cols, 420 / rows)
+    s = cell / 120
+    x0 = W / 2 - (cols - 1) * cell / 2
+    y0 = 690 + cell / 2
+    lit_t = 0.4 + total * 0.05
+    for i in range(total):
+        r_, c_ = divmod(i, cols)
+        k = clamp((t - 0.25 - i * 0.05) / 0.3)
+        if k <= 0:
+            continue
+        lit = i < hi and t > lit_t + i * 0.08
+        col = S['accent'] if lit else 0xFF6B7396
+        pop = ease_back(k) * (1 + (0.12 * math.sin(clamp((t - lit_t - i * 0.08) / 0.3) * math.pi) if lit else 0))
+        cv.save(); cv.translate(x0 + c_ * cell, y0 + r_ * cell); cv.scale(s * pop, s * pop)
+        fn(cv, paint(col, ease(k)))
+        cv.restore()
+    big = str(sc.get('big', '') or (f'{hi} OUT OF {total}' if hi else '')).upper()
+    if big:
+        text(cv, big, 540, 690 + rows * cell + 95, 92, S['accent'], ease((t - lit_t) / 0.4), 'Black')
+    labels(cv, t, sc, 690 + rows * cell + 180, lit_t + 0.3)
+    headline(cv, sc.get('head'), t, 400, 100)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
+# ---- scene-entry transitions (drawn over the first ~0.35 s of a scene)
+TRANSITIONS = ['slice', 'iris', 'glitch', 'bars', 'shutter']
+
+
+def transition(cv, kind, t):
+    skia = S['skia']
+    d = 0.38
+    if t >= d:
+        return
+    q = ease_io(t / d)
+    acc = S['accent']
+    if kind == 'iris':
+        pth = skia.Path(); pth.addRect(skia.Rect(-10, -10, W + 10, H + 10))
+        hole = skia.Path(); hole.addCircle(540, 960, 1150 * q)
+        cut = skia.Op(pth, hole, skia.PathOp.kDifference_PathOp)
+        cv.drawPath(cut, paint(BG, 1)); cv.drawCircle(540, 960, 1150 * q, paint(acc, 1 - q, stroke=40))
+    elif kind == 'slice':
+        for j in range(3):
+            qq = ease_io(clamp(t / d * 1.2 - j * 0.12))
+            off = qq * (W + 900)
+            pth = skia.Path()
+            y0 = j * H / 3
+            pth.moveTo(-200 + off, y0); pth.lineTo(W + 700 + off, y0); pth.lineTo(W + 500 + off, y0 + H / 3 + 2); pth.lineTo(-400 + off, y0 + H / 3 + 2); pth.close()
+            cv.drawPath(pth, paint([acc, BG, acc][j], 1))
+    elif kind == 'bars':
+        for j in range(8):
+            qq = ease_io(clamp(t / d * 1.4 - j * 0.05))
+            h_ = H / 8
+            cv.drawRect(skia.Rect(0, j * h_ + h_ * qq, W, (j + 1) * h_ + 1), paint(acc if j % 2 else BG, 1))
+    elif kind == 'shutter':
+        cv.drawRect(skia.Rect(0, 0, W, H / 2 * (1 - q)), paint(BG, 1))
+        cv.drawRect(skia.Rect(0, H - H / 2 * (1 - q), W, H), paint(BG, 1))
+        cv.drawLine(0, H / 2 * (1 - q), W, H / 2 * (1 - q), paint(acc, 1 - q * 0.5, stroke=10))
+        cv.drawLine(0, H - H / 2 * (1 - q), W, H - H / 2 * (1 - q), paint(acc, 1 - q * 0.5, stroke=10))
+
+
+# ---- logo sting: portal opens, Terra & Para fly in, kinetic wordmark, flash
+def wordmark(cv, t, cx, cy, sc_=1.0, a=1.0):
+    skia = S['skia']
+    f1 = font(int(124 * sc_), 'Black'); f2 = font(int(104 * sc_), 'Black')
+    word = 'PARALLEL'
+    widths = [f1.measureText(ch) for ch in word]
+    sp1 = 6 * sc_
+    total = sum(widths) + sp1 * (len(word) - 1)
+    x = cx - total / 2
+    for i, (ch, w) in enumerate(zip(word, widths)):
+        k = clamp((t - i * 0.045) / 0.3)
+        if k > 0:
+            yy = cy - (1 - ease_back(k)) * 140 * sc_
+            cv.drawString(ch, x, yy, f1, paint(WHITE, ease(k) * a))
+        x += w + sp1
+    k2 = ease((t - 0.45) / 0.5)
+    spacing = (60 - 36 * k2) * sc_
+    word2 = 'EARTH'
+    w2 = [f2.measureText(ch) for ch in word2]
+    total2 = sum(w2) + spacing * 4
+    x = cx - total2 / 2
+    for ch, w in zip(word2, w2):
+        cv.drawString(ch, x, cy + 120 * sc_, f2, paint(S['accent'], k2 * a))
+        x += w + spacing
+
+
+def logo_sting(cv, t, w, h, with_hosts=True):
+    """2.6 s channel sting. Works for 1080x1920 and 1920x1080."""
+    skia = S['skia']
+    cx, cy = w / 2, h * (0.42 if h > w else 0.4)
+    unit = min(w, h) / 1080
+    cv.clear(BG)
+    rng = random.Random(7)
+    for i in range(140):
+        x, y = rng.random() * w, rng.random() * h
+        zoom = 1 + t * 0.25
+        cv.drawCircle(cx + (x - cx) * zoom, cy + (y - cy) * zoom, rng.random() * 2.4 + 0.6, paint(WHITE, 0.25 + 0.6 * rng.random()))
+    ring = ease_back(clamp(t / 0.6)) * 300 * unit
+    portal_ring(cv, cx, cy, ring, t, clamp(t / 0.3))
+    if with_hosts:
+        for who, side in (('terra', -1), ('para', 1)):
+            k = ease_back(clamp((t - 0.3) / 0.6), 1.2)
+            x = cx + side * (w * 0.75 - (w * 0.75 - 330 * unit) * k)
+            y = cy + 40 * unit + math.sin(t * 3 + side) * 8 * unit
+            mascot(cv, who, x, y, 110 * unit, 'excited' if t > 1.2 else 'happy', 0.0, t, -side * 0.6, False, 1.0, 0.0, '', None, side * (1 - k) * 360,
+                   gesture='cheer' if t > 1.3 else '', inner=-side)
+    wy = cy + (360 if h > w else 420) * unit
+    wordmark(cv, t - 0.75, cx, wy, unit, 1.0)
+    fl = clamp((t - 1.55) / 0.5)
+    if 0 < fl < 1:
+        cv.drawCircle(cx, cy, 300 * unit + fl * 900 * unit, paint(S['accent'], (1 - fl) * 0.8, stroke=24 * unit * (1 - fl) + 2))
+        cv.drawRect(skia.Rect(0, 0, w, h), paint(WHITE, (1 - fl) ** 3 * 0.35))
+    tg = ease((t - 1.8) / 0.5)
+    text(cv, 'WHAT IF THE WORLD WAS DIFFERENT?', cx, wy + 230 * unit, int(40 * unit), MUTED, tg, 'Bold', spacing=4 * unit)
+
+
+def sting_audio(dur, sr=24000):
+    n = int(dur * sr); tt = np.arange(n) / sr
+    rng = np.random.default_rng(3)
+    noise = rng.standard_normal(n)
+    sweep = np.clip(tt / 0.9, 0, 1)
+    whoosh = np.convolve(noise, np.ones(30) / 30, mode='same') * np.sin(np.pi * np.clip(tt / 1.0, 0, 1)) * 0.25 * sweep
+    boom = np.where(tt > 1.55, np.sin(2 * np.pi * (55 + 40 * np.exp(-(tt - 1.55) * 8)) * (tt - 1.55)) * np.exp(-(tt - 1.55) * 3.5), 0) * 0.6
+    chime = sum(np.where(tt > 1.6, np.sin(2 * np.pi * f * (tt - 1.6)) * np.exp(-(tt - 1.6) * 2.5), 0) for f in (880, 1320, 1760)) * 0.08
+    out = whoosh + boom + chime
+    return (out / max(1e-6, np.abs(out).max()) * 0.8).astype(np.float32)
+
+
+def render_sting(path, w=1080, h=1920, dur=2.6, cfg=None):
+    import soundfile as sf
+    setup_state(cfg or {'title': 'sting', 'accent': 'orange', 'scenes': [{'lines': [1]}]})
+    skia = S['skia']
+    surf = skia.Surface(w, h)
+    wav = path[:-4] + '.wav'
+    sf.write(wav, sting_audio(dur), 24000)
+    pr = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', f'{w}x{h}', '-r', str(FPS), '-i', '-',
+                           '-i', wav, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k',
+                           '-ar', '48000', '-ac', '2', '-shortest', path], stdin=subprocess.PIPE)
+    for f in range(int(dur * FPS)):
+        with surf as cv:
+            logo_sting(cv, f / FPS, w, h)
+        pr.stdin.write(surf.makeImageSnapshot().toarray(colorType=skia.kRGBA_8888_ColorType).tobytes())
+    pr.stdin.close(); pr.wait()
+    os.remove(wav)
+    return path
+
+
 SCENES = {'split': sc_split, 'title': sc_title, 'globe': sc_globe, 'counter': sc_counter, 'bars': sc_bars, 'words': sc_words,
           'compare': sc_compare, 'distance': sc_distance, 'wave': sc_wave, 'timeline': sc_timeline,
-          'fact': sc_fact, 'brand': sc_brand, 'cta': sc_cta, 'prop': sc_prop}
+          'fact': sc_fact, 'brand': sc_brand, 'cta': sc_cta, 'prop': sc_prop, 'icons': sc_icons}
 
 
 
@@ -1690,6 +1977,9 @@ def render_scene(args):
     S['bgimg'] = S['bgL'] = S['bgR'] = None
     idx = int(sc.get('_idx', 0))
     portal = bool(sc.get('_portal'))
+    trans = str(sc.get('transition', '') or '').lower()
+    if trans not in TRANSITIONS:
+        trans = TRANSITIONS[idx % len(TRANSITIONS)]
     for f in range(n):
         t = f / FPS
         if bgp:
@@ -1707,8 +1997,10 @@ def render_scene(args):
             captions(cv, t, sc)
             if portal:
                 portal_wipe(cv, t)
+            if idx > 0 and not portal and trans != 'glitch':
+                transition(cv, trans, t)
         arr = surf.makeImageSnapshot().toarray(colorType=skia.kRGBA_8888_ColorType)
-        if idx > 0 and not portal and t < 0.24:
+        if idx > 0 and not portal and trans == 'glitch' and t < 0.24:
             arr = glitch(arr, t, idx * 1000 + f)
         pr.stdin.write(arr.tobytes())
     pr.stdin.close()
