@@ -65,6 +65,9 @@ SCENE TYPES (every scene needs "type" and "lines")
     (a big animated illustration of what is happening; "prop" is one of: volcano, clock, planet_crack, tornado, rocket, tree, tsunami, ice, heart, brain, city, thermometer.
      Use 1-2 prop scenes per video, only where the prop clearly matches the dialogue: clock = time/years/days, thermometer = temperature, heart/brain = human body,
      city = cities/people/lights, tree = plants/forests, rocket = space travel, planet_crack = the planet breaking, ice = freezing, tsunami = oceans/floods)
+16. event: {"type":"event","lines":[...],"head":["THE SKY","*BURNS ORANGE*"],"label":"SHORT BIG TEXT","art":"...","bg":"..."}
+    (NO infographic: the illustration of the event fills the screen. This is the MAIN scene type: use it for at least HALF of the
+     scenes, every time the dialogue describes something happening. Use the other types only for numbers, comparisons and the split.)
 15. icons: {"type":"icons","lines":[...],"head":["MOST PEOPLE","WOULD *MOVE*"],"icon":"person","total":10,"highlight":7,"big":"7 OUT OF 10","label":"OCEAN CITIES"}
     (animated pictogram infographic: "total" icons pop in, then "highlight" of them light up. Use it for any ratio, share, count or "X out of Y" number.
      "icon" is one of: person, house, tree, car, drop, sun, heart, bolt, fish, bird, coin, globe, plane, phone, battery, bulb. total 5-30.

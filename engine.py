@@ -133,8 +133,9 @@ def bg(cv, t, dim=1.0, tint=None, tint_a=0.0):
     cv.clear(BG)
     if has_bg():
         cv.drawImage(S['bgimg'], 0, 0)
-        shade = skia.GradientShader.MakeLinear([skia.Point(0, 0), skia.Point(0, H)],
-                                               [acol(BG, 0.82), acol(BG, 0.35), acol(BG, 0.45), acol(BG, 0.85)], [0, 0.35, 0.65, 1])
+        stops = [acol(BG, 0.55), acol(BG, 0.0), acol(BG, 0.0), acol(BG, 0.75)] if S.get('bg_art') else \
+                [acol(BG, 0.82), acol(BG, 0.35), acol(BG, 0.45), acol(BG, 0.85)]
+        shade = skia.GradientShader.MakeLinear([skia.Point(0, 0), skia.Point(0, H)], stops, [0, 0.3, 0.62, 1])
         cv.drawRect(skia.Rect(0, 0, W, H), skia.Paint(Shader=shade))
         if tint is not None and tint_a > 0:
             cv.drawRect(skia.Rect(0, 0, W, H), paint(tint, tint_a))
@@ -971,6 +972,19 @@ def sc_prop(cv, t, D, sc):
     fade_in(cv, t)
 
 
+def sc_event(cv, t, D, sc):
+    """The AI illustration of the event fills the screen; only the headline on top and a short label."""
+    bg(cv, t)
+    if not has_bg():
+        fn = PROPS.get(str(sc.get('prop', '')).lower(), None)
+        if fn:
+            fn(cv, 540, 960, 1.0, t, clamp(t / max(D * 0.85, 0.5)))
+    labels(cv, t, sc, 1250, 1.0)
+    headline(cv, sc.get('head'), t, 400, 100)
+    brand_tag(cv)
+    fade_in(cv, t)
+
+
 # ------------------------------------------------------------ motion graphics: kinetic type, pictograms, transitions, logo sting
 def ease_back(x, s=1.7):
     x = clamp(x) - 1
@@ -1361,7 +1375,7 @@ def render_sting(path, w=1080, h=1920, dur=2.6, cfg=None):
 
 SCENES = {'split': sc_split, 'title': sc_title, 'globe': sc_globe, 'counter': sc_counter, 'bars': sc_bars, 'words': sc_words,
           'compare': sc_compare, 'distance': sc_distance, 'wave': sc_wave, 'timeline': sc_timeline,
-          'fact': sc_fact, 'brand': sc_brand, 'cta': sc_cta, 'prop': sc_prop, 'icons': sc_icons}
+          'fact': sc_fact, 'brand': sc_brand, 'cta': sc_cta, 'prop': sc_prop, 'icons': sc_icons, 'event': sc_event}
 
 
 
@@ -2074,6 +2088,7 @@ def render_scene(args):
     bgl = open_bg(sc['_bgL'], D, 540, H) if sc.get('_bgL') and os.path.exists(sc['_bgL']) else None
     bgr = open_bg(sc['_bgR'], D, 540, H) if sc.get('_bgR') and os.path.exists(sc['_bgR']) else None
     S['bgimg'] = S['bgL'] = S['bgR'] = None
+    S['bg_art'] = os.path.basename(str(sc.get('_bg', ''))).startswith('art_')
     idx = int(sc.get('_idx', 0))
     portal = bool(sc.get('_portal'))
     trans = str(sc.get('transition', '') or '').lower()
@@ -2121,6 +2136,7 @@ def still(cfg, i, D, t, path):
     fn = SCENES.get(str(sc.get('type', 'fact')).lower(), sc_fact)
     surf = skia.Surface(W, H)
     S['bgimg'] = S['bgL'] = S['bgR'] = None
+    S['bg_art'] = os.path.basename(str(sc.get('_bg', ''))).startswith('art_')
     if sc.get('_bg') and os.path.exists(sc['_bg']):
         p = open_bg(sc['_bg'], D); S['bgimg'] = next_bg(p, None); p.kill()
     for key_, sk in (('_bgL', 'bgL'), ('_bgR', 'bgR')):
