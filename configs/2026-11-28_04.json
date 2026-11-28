@@ -2795,5 +2795,10 @@
  },
  "min_seconds": 66,
  "yt_id": "eCf_ofJ8QLA",
- "publish_at": "2026-11-28T15:00"
+ "publish_at": "2026-11-28T15:00",
+ "stats": {
+  "views": 53,
+  "published": "2026-11-28T08:00:05",
+  "checked": "2026-11-28T11:36"
+ }
 }
