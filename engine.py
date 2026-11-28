@@ -2290,7 +2290,7 @@ def ai_art(prompt, path, seed, log=print):
     if acc and tok:
         try:
             r = requests.post(f'https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/black-forest-labs/flux-1-schnell',
-                              headers={'Authorization': f'Bearer {tok}'}, json={'prompt': full[:2000], 'steps': 6, 'seed': seed}, timeout=120)
+                              headers={'Authorization': f'Bearer {tok}'}, json={'prompt': full[:2000], 'steps': 6}, timeout=120)
             img = (r.json().get('result') or {}).get('image')
             if img:
                 open(path, 'wb').write(base64.b64decode(img))
