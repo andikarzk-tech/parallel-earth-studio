@@ -2766,5 +2766,10 @@
  },
  "min_seconds": 66,
  "yt_id": "PpvLN-nb9MU",
- "publish_at": "2026-11-27T23:00"
+ "publish_at": "2026-11-27T23:00",
+ "stats": {
+  "views": 1,
+  "published": "2026-11-27T16:00:16",
+  "checked": "2026-11-28T03:12"
+ }
 }

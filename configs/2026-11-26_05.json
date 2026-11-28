@@ -2869,5 +2869,10 @@
  },
  "min_seconds": 66,
  "yt_id": "ezmItOnV-fo",
- "publish_at": "2026-11-27T11:00"
+ "publish_at": "2026-11-27T11:00",
+ "stats": {
+  "views": 98,
+  "published": "2026-11-27T04:00:32",
+  "checked": "2026-11-28T03:12"
+ }
 }

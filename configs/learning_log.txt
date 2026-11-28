@@ -6,3 +6,10 @@ Today genes: [{"accent": "cyan", "style": "space", "speed": "1.1", "hook": "myth
 === 2026-11-27 ===
 📈 Belajar: baru 2 video punya data penonton (perlu ≥3, umur ≥12 jam). Mesin masih mode eksplorasi.
 Today genes: [{"accent": "yellow", "style": "grid", "speed": "1.15", "hook": "imagine", "category": "history", "fxlevel": "light"}, {"accent": "red", "style": "dust", "speed": "1.1", "hook": "shock", "category": "human body", "fxlevel": "heavy"}, {"accent": "green", "style": "grid", "speed": "1.05", "hook": "shock", "category": "human body", "fxlevel": "light"}, {"accent": "cyan", "style": "dust", "speed": "1.15", "hook": "myth", "category": "everyday life", "fxlevel": "light"}, {"accent": "yellow", "style": "grid", "speed": "1.15", "hook": "countdown", "category": "technology", "fxlevel": "heavy"}]
+
+=== 2026-11-28 ===
+📈 Laporan belajar (7 video dinilai)
+🏆 Terbaik: What if Birds Were As Smart As Humans? (8.3x rata-rata)
+🐢 Terlemah: What If the Library of Alexandria Never Burned? (0.0x)
+🧬 Gen unggul: hook=myth (8.1x), category=space (4.5x), fxlevel=light (4.0x), style=space (8.2x), accent=cyan (8.1x), speed=1.1 (5.5x)
+Today genes: [{"accent": "cyan", "style": "dust", "speed": "1.15", "hook": "shock", "category": "history", "fxlevel": "light"}, {"accent": "cyan", "style": "space", "speed": "1.15", "hook": "myth", "category": "animals", "fxlevel": "light"}, {"accent": "orange", "style": "dust", "speed": "1.1", "hook": "myth", "category": "oceans", "fxlevel": "light"}, {"accent": "orange", "style": "space", "speed": "1.15", "hook": "myth", "category": "everyday life", "fxlevel": "light"}, {"accent": "orange", "style": "grid", "speed": "1.1", "hook": "myth", "category": "animals", "fxlevel": "light"}]
