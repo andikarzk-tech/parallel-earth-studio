@@ -79,6 +79,15 @@ def text(cv, s, x, y, size, color=WHITE, a=1.0, weight='Black', align='center', 
     cv.save(); cv.translate(x, y); cv.scale(scale, scale)
     ox = -w / 2 if align == 'center' else 0
     p = paint(color, a)
+    if S.get('bg_art') and size >= 34:   # dark outline so text stays readable over busy illustrations
+        o = paint(0xFF05081A, 0.85 * a, stroke=max(6, size * 0.16))
+        o.setStrokeJoin(S['skia'].Paint.kRound_Join)
+        if spacing == 0:
+            cv.drawString(s, ox, 0, f, o)
+        else:
+            cx = ox
+            for ch in s:
+                cv.drawString(ch, cx, 0, f, o); cx += f.measureText(ch) + spacing
     if spacing == 0:
         cv.drawString(s, ox, 0, f, p)
     else:
